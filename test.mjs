@@ -1,0 +1,16 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+import {buildWorld,navigation} from './site/js/world.js';
+import {createGame,difficulties} from './site/js/game.js';
+import {unityMaterial} from './site/js/lighting.js';
+import * as T from './site/js/three.js';
+const data=JSON.parse(fs.readFileSync(new URL('./site/assets/house.json',import.meta.url)));
+const b=fs.readFileSync(new URL('./site/assets/geometry.bin',import.meta.url));
+const world=buildWorld(data,b.buffer.slice(b.byteOffset,b.byteOffset+b.length));
+const nav=navigation(world),ghostNav=navigation(world,{ghost:true});
+test('difficulty and original item distribution',()=>{for(const difficulty of Object.keys(difficulties)){const g=createGame(world,nav,{difficulty});g.add('p','Test');g.start();const s=g.snapshot();assert.equal(s.required,difficulties[difficulty].bags);assert.equal(s.items.filter(x=>x.type==='bag').length,30);assert.equal(s.items.filter(x=>x.type==='eye'&&!x.hidden).length,3*difficulties[difficulty].eyes);}});
+test('monster spawns on basement or upper corridor with clearance',()=>{for(let i=0;i<20;i++){const s=createGame(world,nav).snapshot();assert(s.ghost.p[1]<-.5||s.ghost.p[1]>2.8);assert(!world.blocked(...s.ghost.p,{},.65,false,true));}});
+test('all monster navigation edges obey monster collision including closed doors',()=>{for(const n of ghostNav.nodes)for(const id of n.edges){const to=ghostNav.nodes[id].p;const p=world.move(n.p,to[0]-n.p[0],to[2]-n.p[2],{},false,true);assert(Math.hypot(...p.map((x,i)=>x-to[i]))<.08);}});
+test('lobby chat clock advances without starting a match',()=>{const g=createGame(world,nav,{mode:'coop'});g.add('a','A');g.input('a',{chat:'first'});g.tick(1);g.input('a',{chat:'second'});assert.equal(g.snapshot().events.filter(e=>e.type==='chat').length,2);});
+test('flashlight shader actually replaces distance attenuation',()=>{const m=unityMaterial(new T.MeshLambertMaterial(),{});const shader={uniforms:{},fragmentShader:'#include <lights_pars_begin>'};m.onBeforeCompile(shader);assert(shader.fragmentShader.includes('25.0*r*r'));assert(!shader.fragmentShader.includes('return distanceFalloff'));});
+test('multiplayer retains player identity across long idle ticks',()=>{const g=createGame(world,nav,{mode:'versus'});g.add('a','A');g.add('b','B','monster');g.start();for(let i=0;i<1200;i++)g.tick(.025);assert.equal(g.snapshot().players.length,2);assert.equal(g.snapshot().events.filter(e=>e.type==='feed').length,0);});
+test('monster corridor graph connects basement and upper floor',()=>{const a=world.xyz(1399),b=world.xyz(2252);a[1]=-3.2;b[1]=3.2;assert(ghostNav.path(a,b).length>0,'Corridors disconnected');});

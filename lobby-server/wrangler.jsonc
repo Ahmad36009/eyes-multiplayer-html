@@ -1,0 +1,7 @@
+{
+  "name": "eyes-lobbies",
+  "main": "worker.js",
+  "compatibility_date": "2026-01-01",
+  "vars": { "ALLOWED_ORIGIN": "https://YOURNAME.github.io" },
+  "d1_databases": [{ "binding": "DB", "database_name": "eyes-lobbies", "database_id": "REPLACE_WITH_DATABASE_ID" }]
+}

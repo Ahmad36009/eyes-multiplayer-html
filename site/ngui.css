@@ -1,0 +1,55 @@
+#menu>.panel {
+  width:min(100%,1100px);height:min(85dvh,800px);min-height:0;
+  padding:0;display:block;position:relative;
+}
+#menu .original-title {
+  position:absolute;left:calc(50% - min(8px,1vw));top:29%;
+  transform:translate(-50%,-50%);padding:0; text-align:center;
+}
+#menu .original-title h1 {font-size:min(150px,14dvh,20vw);margin:0}
+#menu .original-title .subtitle {
+  position:absolute;top:calc(100% + 5px);left:50%;width:max-content;
+  margin:0;text-align:center; font-size:min(62px,6dvh,8vw);
+}
+.ngui-main-actions {position:absolute;inset:0;pointer-events:none}
+.ngui-main-actions button {
+  --y:0;
+  position:absolute;left:72%;top:calc(50% - var(--y)*.1125%);
+  transform:translate(-50%,-50%);pointer-events:auto;
+  background:none;border:0;color:#eee;font-size:min(48px,5.5dvh,8vw);
+}
+.ngui-main-actions button:nth-child(1){--y:124;font-size:min(60px,6.5dvh,10vw)}
+.ngui-main-actions button:nth-child(2){--y:2.57}
+.ngui-main-actions button:nth-child(3){--y:-117.18}
+.ngui-main-actions button:nth-child(4){--y:-236.93}
+.ngui-main-actions button:hover,.ngui-main-actions button:focus-visible{color:#b62929}
+#menu .menu-actions,.ngui-page {
+  position:absolute;inset:0;z-index:10;overflow:auto;
+  padding:clamp(16px,4vw,36px);background:#080808f7;
+}
+#menu #menuStatus{min-height:1em}
+#pause{background:#0009}
+.ngui-pause {
+  --span:min(870px,94vw,120dvh);
+  width:var(--span);aspect-ratio:866/672;position:relative;
+  background:#121212ed;color:white;font-size:clamp(12px,3vw,28px);
+}
+.ngui-pause>*{position:absolute;margin:0}
+.ngui-pause h2{left:50%;top:14.1%;transform:translate(-50%,-50%);font-size:inherit}
+.ngui-pause label{left:14%;right:14%;display:grid;grid-template-columns:1fr 1.25fr;align-items:center;gap:8%}
+.ngui-pause input{width:100%;padding:0;accent-color:#aaa}
+.pause-sound{top:29.3%}
+.pause-sensitivity{top:42.3%}
+.pause-brightness{top:54.4%}
+.ngui-pause button {
+  padding:0 .55em;min-height:1.9em;background:transparent url('./assets/ui/button_sliced.png') center/100% 100%;
+  border:0;font-size:inherit;white-space:nowrap;transform:translate(-50%,-50%);
+}
+#resume{left:30.3%;top:71.9%}
+#quit{left:70.5%;top:71.9%}
+#pauseFullscreen{left:50%;top:85.8%}
+#pauseText{bottom:2%;width:100%;text-align:center;font-size:.6em}
+@media(max-width:560px){
+ #menu .original-title{left:36%}
+ .ngui-main-actions button{left:77%}
+}

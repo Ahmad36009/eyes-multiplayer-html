@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS lobbies (code TEXT PRIMARY KEY, token TEXT NOT NULL, body TEXT NOT NULL, expires INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS lobby_expiry ON lobbies(expires);
