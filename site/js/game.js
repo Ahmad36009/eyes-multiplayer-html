@@ -145,10 +145,10 @@ export function createGame(world,nav,options={}){
       const vz=(-Math.sin(player.yaw)*x+Math.cos(player.yaw)*z)*speed;
       const contact=world.doorContact(door.id,player.p,open);
       if(!contact||Math.abs(contact.lever)<.015)continue;
-      const closing=-contact.lever*velocity-vx*contact.nx-vz*contact.nz;
+      const closing=contact.lever*velocity-vx*contact.nx-vz*contact.nz;
       if(closing<=0)continue;
       const impulse=closing/(contact.lever**2+.16);
-      velocity+=impulse*contact.lever;
+      velocity-=impulse*contact.lever;
       if(!hingeVelocity.has(door.id))emit('door','',{id:door.id});
     }
     if(!angle&&Math.abs(velocity)<.001)continue;

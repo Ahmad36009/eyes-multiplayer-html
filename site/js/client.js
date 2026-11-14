@@ -775,7 +775,7 @@ function draw(now,dt){
     }
     animator.update(screen==='game'&&s.stage==='running'?dt:0,s.open,s.elapsed,s.done);
     for(const [door,o] of doorMeshes){
-      if(world.nodes.get(door).animation?.default)continue;
+      if(!world.nodes.get(door).hinge&&world.nodes.get(door).animation?.default)continue;
       twist.copy(o.userData.closed);
       if(s.open[door])twist.multiply(new T.Quaternion().setFromAxisAngle(axis,1.48*s.open[door]));
       o.quaternion.copy(twist);
