@@ -557,10 +557,13 @@ function predict(dt){
   if(latest&&dt>0&&latest.frames.length<20)latest.frames.push({input,dt});
   me.p=[...pred];
 }
+const startupTextures=[];
 function getTexture(file,srgb=true,scale=[1,1],offset=[0,0]){
   const k=JSON.stringify([file,srgb,scale,offset]);
   if(textures.has(k))return textures.get(k);
-  const tx=new T.TextureLoader().load(asset(file));
+  let finish;
+  startupTextures.push(new Promise(resolve=>{finish=resolve;}));
+  const tx=new T.TextureLoader().load(asset(file),()=>finish(true),undefined,()=>finish(false));
   tx.colorSpace=srgb?T.SRGBColorSpace:T.NoColorSpace;
   tx.wrapS=tx.wrapT=T.RepeatWrapping;tx.repeat.fromArray(scale);tx.offset.fromArray(offset);tx.anisotropy=coarse?1:4;
   textures.set(k,tx);return tx;
@@ -823,8 +826,8 @@ function loop(now){
 (async()=>{
   try{
     [data,bytes]=await Promise.all([fetch(asset('house.json')).then(r=>r.json()),fetch(asset('geometry.bin')).then(r=>r.arrayBuffer())]);
-    world=buildWorld(data,bytes);audio=soundscape(data,world,()=>+$('volume').value);ui=await originalUI();renderWorld();await loadPlayerModel();$('play').disabled=false;$('menuStatus').textContent='';menuState();requestAnimationFrame(loop);
-  }catch(e){$('menuStatus').textContent='Could not load the house. '+e.message;console.error(e);$('play').disabled=true;}
+    world=buildWorld(data,bytes);audio=soundscape(data,world,()=>+$('volume').value);ui=await originalUI();renderWorld();const [texturesReady]=await Promise.all([Promise.all(startupTextures),loadPlayerModel(),document.fonts?.ready]);if(texturesReady.includes(false))throw Error('A scene texture could not load.');$('play').disabled=false;$('menuStatus').textContent='';menuState();requestAnimationFrame(loop);globalThis.dispatchEvent?.(new Event('eyes-ready'));
+  }catch(e){$('menuStatus').textContent='Could not load the house. '+e.message;console.error(e);$('play').disabled=true;globalThis.dispatchEvent?.(new Event('eyes-load-error'));}
 })();
 
 let storyPage=0;
@@ -871,4 +874,5 @@ function startMenuMusic(){
   menuMusic.play().catch(()=>{menuMusic=null;});
 }
 document.addEventListener('pointerdown',startMenuMusic);
+document.getElementById('focusGate')?.addEventListener('click',startMenuMusic);
 document.addEventListener('keydown',startMenuMusic);
