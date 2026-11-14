@@ -471,11 +471,34 @@ bindMultiTouchButton('touchUse',use);
 bindMultiTouchButton('touchEye',()=>action.eye=true);
 bindMultiTouchButton('touchRun',()=>{$('touchRun').classList.toggle('active',runTouch=!runTouch);});
 bindMultiTouchButton('chatToggle',()=>{keys.clear();stick={x:0,z:0};if(document.pointerLockElement)document.exitPointerLock();set('chatForm',true);$('chatText').focus();});
+function findInteraction(s,me){
+  const candidates=new Map([...s.items.filter(item=>!item.taken&&!item.hidden),...s.doors.filter(door=>!door.push)].map(item=>[world.objects.get(item.id==='exit'?world.exit.id:item.id),item]));
+  camera.getWorldDirection(lookDir);
+  interactionRay.set(camera.position,lookDir);
+  interactionRay.far=2.5;
+  house.updateMatrixWorld(true);
+  for(const hit of interactionRay.intersectObject(house,true)){
+    if(!hit.object.isMesh)continue;
+    let visible=true,item;
+    for(let object=hit.object;object;object=object.parent){
+      if(!object.visible){visible=false;break;}
+      if(!item)item=candidates.get(object);
+    }
+    if(!visible)continue;
+    if(!item)return null;
+    return {...item,hitPoint:[hit.point.x,hit.point.y,-hit.point.z]};
+  }
+  return null;
+}
 function use(){
   const me=state?.players.find(p=>p.id===id);
-  if(!me?.alive)return;
+  if(screen!=='game'||state.stage!=='running'||!me?.alive||me.vision>state.elapsed)return;
   if(me.role==='monster')action.attack=true;
-  else if(target){action.interact=target.id;action.hitPoint=target.hitPoint;}
+  else {
+    camera.rotation.set(pitch,-yaw,0,'YXZ');
+    const aimed=findInteraction(state,me);
+    if(aimed){action.interact=aimed.id;action.hitPoint=aimed.hitPoint;}
+  }
 }
 function pointerArea(el,update,end){
   let pointer=null;
@@ -491,7 +514,8 @@ pointerArea($('stick'),e=>{
 let drag=null;
 pointerArea($('look'),(e,first)=>{
   if(first){drag=[e.clientX,e.clientY];return;}
-  yaw+=(e.clientX-drag[0])*.0045;pitch=clamp(pitch-(e.clientY-drag[1])*.0045,-1.35,1.35);drag=[e.clientX,e.clientY];
+  const gain=.0045*+$("sensitivity").value;
+  yaw+=(e.clientX-drag[0])*gain;pitch=clamp(pitch-(e.clientY-drag[1])*gain,-1.35,1.35);drag=[e.clientX,e.clientY];
 },()=>drag=null);
 function packet(){
   if(screen!=='game'){const p={x:0,z:0,yaw,pitch,...action};action={};return p;}
@@ -766,27 +790,7 @@ function draw(now,dt){
     if(now>eventUntil){$('message').textContent='';if(!s.ghost.hunting)$('danger').textContent='';}
     target=null;
     if(!role&&!vision&&me.alive&&screen==='game'){
-      camera.getWorldDirection(lookDir);
-      interactionRay.set(camera.position,lookDir);
-      interactionRay.far=2.5;
-      let nearest=Infinity;
-      for(const candidate of [...s.items.filter(x=>!x.taken&&!x.hidden),...s.doors.filter(x=>!x.push)]){
-        const object=world.objects.get(candidate.id);
-        object?.updateWorldMatrix(true,true);
-        const hit=object&&interactionRay.intersectObject(object,true).find(h=>h.object.isMesh&&h.object.visible);
-        let point=hit?.point;
-        if(!point){
-          pos.set(candidate.p[0],candidate.p[1],-candidate.p[2]).sub(camera.position);
-          const along=pos.dot(lookDir);
-          if(along<=0||along>2.5||pos.addScaledVector(lookDir,-along).length()>.24)continue;
-          point=new T.Vector3(candidate.p[0],candidate.p[1],-candidate.p[2]);
-        }
-        const d=point.distanceTo(camera.position);
-        if(d>=nearest||d>2.5)continue;
-        const hitPoint=[point.x,point.y,-point.z];
-        if(!world.clear([me.p[0],me.p[1]+.75,me.p[2]],[point.x,point.y-.75,-point.z],{...s.open,[candidate.id]:true},.75))continue;
-        target={...candidate,hitPoint};nearest=d;
-      }
+      target=findInteraction(s,me);
     }
     $('prompt').textContent=target?(coarse?'':'E · ')+labels[target.type]:'';
     audio.update(s,me,dt,screen==='game', {active:!!step,run:keys.has('ShiftLeft')||keys.has('ShiftRight')||runTouch});

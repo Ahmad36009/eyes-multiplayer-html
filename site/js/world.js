@@ -125,11 +125,12 @@ export function buildWorld(data, bytes) {
     return [...hits[0],...hits.at(-1)];
   }
   // Nearest point on the actual door collider at character body height.
-  function doorHitsWall(id,open){
+  function doorHitsWall(id,open,previous=0){
     const angle=(open[id]||0)*1.48;
     if(Math.abs(angle)<.01)return false;
     const [hx,,hz]=hinges.get(id);
     const c=Math.cos(angle),s=Math.sin(angle);
+    const pc=Math.cos(previous),ps=Math.sin(previous);
     for(const t of panels){
       if(t[10]!==id||Math.abs(t[9])>.73)continue;
       for(let i=0;i<9;i+=3){
@@ -142,7 +143,10 @@ export function buildWorld(data, bytes) {
           const edge=section(wall,t[i+1]);if(!edge)continue;
           const [ax,az,bx,bz]=edge, vx=bx-ax,vz=bz-az;
           const u=Math.max(0,Math.min(1,((x-ax)*vx+(z-az)*vz)/(vx*vx+vz*vz||1)));
-          if(Math.hypot(x-ax-u*vx,z-az-u*vz)<.04)return true;
+          const px=hx+pc*dx+ps*dz,pz=hz-ps*dx+pc*dz;
+          const oldU=Math.max(0,Math.min(1,((px-ax)*vx+(pz-az)*vz)/(vx*vx+vz*vz||1)));
+          const before=Math.hypot(px-ax-oldU*vx,pz-az-oldU*vz);
+          if(before>=.04&&Math.hypot(x-ax-u*vx,z-az-u*vz)<.04)return true;
         }
       }
     }

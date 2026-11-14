@@ -73,3 +73,10 @@
   pointer-events:none;
 }
 #lobby .release-feed-notice {margin:.5rem 0}
+@media (pointer:fine) {
+  #hud .hud-buttons {display:none}
+}
+#hud #mapButton {
+  width:auto;min-width:64px;height:44px;
+  background:#160f0aee;color:#fff;font-size:14px;
+}
