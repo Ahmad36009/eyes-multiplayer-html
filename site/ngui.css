@@ -58,3 +58,18 @@
 #end.caught #retryDifficulty {display:block;margin:0 auto 10px}
 #end.caught select {font:inherit}
 @keyframes death-fade {from{background:#000d}to{background:#000}}
+.release-feed-notice {
+  color:#ffe0a0;
+  background:#160f0aee;
+  border-left:3px solid #c49245;
+  padding:.5rem .75rem;
+  font-size:.85rem;
+}
+#hud .release-feed-notice {
+  position:absolute;
+  left:12px;
+  top:17%;
+  max-width:min(65vw,32rem);
+  pointer-events:none;
+}
+#lobby .release-feed-notice {margin:.5rem 0}
