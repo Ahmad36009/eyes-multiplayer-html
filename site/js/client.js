@@ -28,7 +28,9 @@ function cycleSpectate(step){
 }
 function show(next){
   if(next==='menu')menuPage('home');
-  screen=next;globalThis.eyesInMatch=!!state&&['running','ending'].includes(state.stage);
+  if(next!=='menu'&&menuMusic){menuMusic.pause();menuMusic=null;}
+  screen=next;
+  if(next==='menu')startMenuMusic();globalThis.eyesInMatch=!!state&&['running','ending'].includes(state.stage);
   if(next!=='game')$('nametags').replaceChildren();
   for(const key of ['menu','lobby','map','pause','end','story'])set(key,key===next);
   set('hud',next==='game');
@@ -276,6 +278,7 @@ function resetRound(s){
   audio.start();
   for(const a of [breathing,monsterBreath,monsterHum])stop(a);breathing=null;monsterBreath=null;monsterHum=null;
   show('game');
+  $('shade').animate?.([{background:'#000'},{background:'transparent'}],{duration:1200});
 }
 function apply(s){
   const prior=state?.stage;
@@ -324,7 +327,6 @@ function apply(s){
     const caught=s.winner==='caught';$('endDifficulty').value=s.difficulty;$('replay').hidden=!!room;
     $('end').classList.toggle('caught',caught);
     if(caught){
-      $('shade').style.background='';
       $('shade').classList.add('death-fade');
       setTimeout(()=>{
         if(state?.stage==='ended'&&state.winner==='caught')show('end');
@@ -413,7 +415,7 @@ $('start').onclick=async()=>{
 $('pauseButton').onclick=()=>pause();$('resume').onclick=resume;
 $('mapButton').onclick=showMap;$('closeMap').onclick=resume;
 $('floors').onclick=e=>{if(e.target.dataset.floor!=null){mapFloor=+e.target.dataset.floor;drawMap();}};
-$('volume').oninput=()=>{if(gameAmbient)gameAmbient.volume=+$('volume').value*.38;};
+$('volume').oninput=()=>{if(menuMusic)menuMusic.volume=+$('volume').value;if(gameAmbient)gameAmbient.volume=+$('volume').value*.38;};
 $('brightness').oninput=()=>{originalAmbient.value=+$('brightness').value;};
 $('fullscreen').onclick=async()=>{
  try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}
@@ -473,7 +475,7 @@ function use(){
   const me=state?.players.find(p=>p.id===id);
   if(!me?.alive)return;
   if(me.role==='monster')action.attack=true;
-  else if(target)action.interact=target.id;
+  else if(target){action.interact=target.id;action.hitPoint=target.hitPoint;}
 }
 function pointerArea(el,update,end){
   let pointer=null;
@@ -761,14 +763,26 @@ function draw(now,dt){
     if(now>eventUntil){$('message').textContent='';if(!s.ghost.hunting)$('danger').textContent='';}
     target=null;
     if(!role&&!vision&&me.alive&&screen==='game'){
-      camera.getWorldDirection(lookDir);let best=-Infinity;
+      camera.getWorldDirection(lookDir);
+      interactionRay.set(camera.position,lookDir);
+      interactionRay.far=2.5;
+      let nearest=Infinity;
       for(const candidate of [...s.items.filter(x=>!x.taken&&!x.hidden),...s.doors.filter(x=>!x.push)]){
-        pos.set(candidate.p[0],candidate.p[1],-candidate.p[2]).sub(camera.position);
-        const d=pos.length();if(d>2.5||d<.04||distance([me.p[0],me.p[1]+.75,me.p[2]],candidate.p)>=(candidate.type==='exit'?2.7:2.25))continue;
-        const dot=pos.divideScalar(d).dot(lookDir);
-        const radius=candidate.type==='bag'?.22:.15;const min=Math.cos(Math.asin(Math.min(1,(radius+.1)/d)));
-        if(dot<min||!world.clear(me.p,[candidate.p[0],candidate.p[1]-.75,candidate.p[2]],{...s.open,[candidate.id]:true},.75))continue;
-        const score=dot-d*.04;if(score>best){target=candidate;best=score;}
+        const object=world.objects.get(candidate.id);
+        object?.updateWorldMatrix(true,true);
+        const hit=object&&interactionRay.intersectObject(object,true).find(h=>h.object.isMesh&&h.object.visible);
+        let point=hit?.point;
+        if(!point){
+          pos.set(candidate.p[0],candidate.p[1],-candidate.p[2]).sub(camera.position);
+          const along=pos.dot(lookDir);
+          if(along<=0||along>2.5||pos.addScaledVector(lookDir,-along).length()>.24)continue;
+          point=new T.Vector3(candidate.p[0],candidate.p[1],-candidate.p[2]);
+        }
+        const d=point.distanceTo(camera.position);
+        if(d>=nearest||d>2.5)continue;
+        const hitPoint=[point.x,point.y,-point.z];
+        if(!world.clear([me.p[0],me.p[1]+.75,me.p[2]],[point.x,point.y-.75,-point.z],{...s.open,[candidate.id]:true},.75))continue;
+        target={...candidate,hitPoint};nearest=d;
       }
     }
     $('prompt').textContent=target?(coarse?'':'E · ')+labels[target.type]:'';
@@ -776,8 +790,9 @@ function draw(now,dt){
     ui.update(s,me,target);
     if((s.stage==='ending'&&s.winner==='caught')||(dead&&s.elapsed-(me.caughtAt??-99)<1.75)){
       camera.lookAt(s.ghost.p[0],s.ghost.p[1]+1.45,-s.ghost.p[2]);
-      camera.fov=60-50*Math.min(1,(s.stage==='ending'?1.75-s.ending:s.elapsed-me.caughtAt)/.5);camera.updateProjectionMatrix();
-      $('shade').style.background='';
+      const scareTime=s.stage==='ending'?1.75-s.ending:s.elapsed-me.caughtAt;
+      camera.fov=60-50*Math.min(1,scareTime/.5);camera.updateProjectionMatrix();
+      $('shade').style.background='rgba(0,0,0,'+Math.min(1,scareTime/2)+')';
     }else{camera.fov=60;camera.updateProjectionMatrix();$('shade').style.background='';}
 
   }else{
@@ -786,7 +801,7 @@ function draw(now,dt){
     if(ghostVisual)ghostVisual.visible=false;
   }
   originalAmbient.value=ghostView?3:audio?.flash(s?.elapsed||0)?1.5:+$('brightness').value;
-  if(me&&!me.alive&&s.stage==='running'){const t=s.elapsed-me.caughtAt;$('shade').style.background=t>=1.75&&t<2.45?'rgba(0,0,0,'+Math.min(1,(t-1.75)/.35)+')':'';}
+  if(me&&!me.alive&&s.stage==='running'&&s.elapsed-me.caughtAt>=1.75){const t=s.elapsed-me.caughtAt;$('shade').style.background=t>=1.75&&t<2.45?'rgba(0,0,0,'+Math.min(1,(t-1.75)/.35)+')':'';}
   flash.update(dt,s?.elapsed||0,!ghostView&&flashOn&&inGame);
   renderer.render(scene,camera);
 }
@@ -813,13 +828,18 @@ function loop(now){
 })();
 
 let storyPage=0;
+let storyTimer=0;
 function beginStory(){
  storyPage=0;show('story');
  const count={casual:12,normal:20,hard:30}[$('difficulty').value];
- $('storyText').textContent="> just wanna talk 'bout this break-in business\n> already checked it for ya\n> you could get at least "+count+" bags\n> i have the front door key\n> anything else?\n> make a map, that place is huge\n> >> logged out <<";
- sound('chatPing',.6);
+ const transcript="> just wanna talk 'bout this break-in business\n> already checked it for ya\n> you could get at least "+count+" bags\n> i have the front door key\n> anything else?\n> make a map, that place is huge\n> >> logged out <<";
+ const lines=transcript.split('\n');let line=0;
+ clearInterval(storyTimer);$('storyText').textContent='';
+ const next=()=>{if(screen!=='story'||storyPage||line>=lines.length){clearInterval(storyTimer);return;} $('storyText').textContent+=(line?'\n':'')+lines[line++];sound('chatPing',.6);};
+ next();storyTimer=setInterval(next,550);
 }
 function advanceStory(){
+ clearInterval(storyTimer);
  if(storyPage++===0){
   const count={casual:12,normal:20,hard:30}[$('difficulty').value];
   $('storyText').textContent='LEVEL: '+$('difficulty').value+'\n\n* Find at least '+count+' money bags then get back to the exit\n* Hide and/or run from threats\n* Preserve your stamina for dire situations\n* Use a map and Eyes to move safely';
@@ -840,3 +860,15 @@ for(const [pauseId,settingId] of [['pauseVolume','volume'],['pauseSensitivity','
   $(pauseId).oninput=()=>{$(settingId).value=$(pauseId).value;$(settingId).oninput?.();};
 }
 $('pauseFullscreen').onclick=()=>$('fullscreen').click();
+
+const interactionRay=new T.Raycaster();
+
+let menuMusic=null;
+function startMenuMusic(){
+  if(screen!=='menu'||menuMusic)return;
+  menuMusic=new Audio(asset('menu.ogg'));menuMusic.loop=true;
+  menuMusic.volume=+$('volume').value;
+  menuMusic.play().catch(()=>{menuMusic=null;});
+}
+document.addEventListener('pointerdown',startMenuMusic);
+document.addEventListener('keydown',startMenuMusic);

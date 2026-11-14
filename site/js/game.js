@@ -55,10 +55,13 @@ export function createGame(world,nav,options={}){
   if(mode!=='solo'&&(players.size<2||mode==='versus'&&![...players.values()].some(p=>p.role==='monster')))throw Error('Room needs more players.');
   stage='running';emit('start');}
  function end(result){stage='ending';winner=result;ending=result==='caught'?1.75:.75;emit(result==='caught'?'shout3':'escaped');}
- function interact(p,id){
+ function interact(p,id,hitPoint){
+  if(!Array.isArray(hitPoint)||hitPoint.length!==3||!hitPoint.every(Number.isFinite))hitPoint=null;
   const item=[...items.filter(i=>!i.taken&&!i.hidden),...doors,...props].find(i=>String(i.id)===String(id));
-  if(!item||distance([p.p[0],p.p[1]+.75,p.p[2]],item.p)>(item.type==='exit'?2.7:2.5))return;
-  if(!world.clear(p.p,[item.p[0],item.p[1]-.75,item.p[2]],{...open,[item.id]:true},.75))return;
+  if(!item)return;
+  const point=hitPoint||item.p;
+  if(distance([p.p[0],p.p[1]+1.5,p.p[2]],point)>2.65||distance(point,item.p)>1.5)return;
+  if(!world.clear([p.p[0],p.p[1]+.75,p.p[2]],[point[0],point[1]-.75,point[2]],{...open,[item.id]:true},.75))return;
   const n=world.nodes.get(item.id);
   if(item.type==='door'){
    if(item.push)return;
@@ -110,7 +113,7 @@ export function createGame(world,nav,options={}){
    return;
   }
   if(packet.eye&&p.eyes&&p.vision<=elapsed){p.eyes--;p.vision=elapsed+3;active=true;emit('eye');}
-  if(packet.interact!=null&&p.vision<=elapsed)interact(p,packet.interact);
+  if(packet.interact!=null&&p.vision<=elapsed)interact(p,packet.interact,packet.hitPoint);
  }
  function tick(dt){
   clock+=dt;
@@ -131,7 +134,7 @@ export function createGame(world,nav,options={}){
     let velocity=hingeVelocity.get(door.id)||0;
     const radians=Math.PI/180;
     if(hinge.m_UseSpring){
-      velocity+=(-(spring.spring*(angle-spring.targetPosition*radians)+spring.damper*velocity))*dt;
+      velocity+=(-(spring.spring*(angle-spring.targetPosition*radians)+Math.max(spring.damper,2*Math.sqrt(spring.spring))*velocity))*dt;
     }
     for(const player of survivors){
       if(player.vision>elapsed)continue;
@@ -153,13 +156,14 @@ export function createGame(world,nav,options={}){
     const step=Math.max(-.12,Math.min(.12,velocity*dt));
     let fraction=1;
     for(;fraction>=1/32;fraction/=2){
-      open[door.id]=(angle+step*fraction)/scale;
-      if(!survivors.some(player=>world.blocked(...player.p,open,.20,false,false,door.id)))break;
+      const next=Math.max(-Math.PI/2,Math.min(Math.PI/2,angle+step*fraction));
+      open[door.id]=next/scale;
+      if(!world.doorHitsWall(door.id,open)&&!survivors.some(player=>world.blocked(...player.p,open,.20,false,false,door.id)))break;
     }
     if(fraction<1/32){open[door.id]=angle/scale;velocity=0;}
     if(Math.abs(open[door.id])<.002&&Math.abs(velocity)<.01){
       delete open[door.id];hingeVelocity.delete(door.id);
-    }else hingeVelocity.set(door.id,velocity);
+    }else hingeVelocity.set(door.id,Math.abs(open[door.id]*scale)>=Math.PI/2-1e-6?0:velocity);
   }
   for(const p of survivors){
   if(p.vision<=elapsed){

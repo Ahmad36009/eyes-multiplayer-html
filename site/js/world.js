@@ -125,6 +125,29 @@ export function buildWorld(data, bytes) {
     return [...hits[0],...hits.at(-1)];
   }
   // Nearest point on the actual door collider at character body height.
+  function doorHitsWall(id,open){
+    const angle=(open[id]||0)*1.48;
+    if(Math.abs(angle)<.01)return false;
+    const [hx,,hz]=hinges.get(id);
+    const c=Math.cos(angle),s=Math.sin(angle);
+    for(const t of panels){
+      if(t[10]!==id||Math.abs(t[9])>.73)continue;
+      for(let i=0;i<9;i+=3){
+        const dx=t[i]-hx,dz=t[i+2]-hz;
+        // Ignore the jamb immediately beside the hinge.
+        if(Math.hypot(dx,dz)<.3)continue;
+        const x=hx+c*dx+s*dz,z=hz-s*dx+c*dz;
+        for(const wall of around(x,z,.045)){
+          if(wall[10]||wall[12]!==1||Math.abs(wall[9])>.73)continue;
+          const edge=section(wall,t[i+1]);if(!edge)continue;
+          const [ax,az,bx,bz]=edge, vx=bx-ax,vz=bz-az;
+          const u=Math.max(0,Math.min(1,((x-ax)*vx+(z-az)*vz)/(vx*vx+vz*vz||1)));
+          if(Math.hypot(x-ax-u*vx,z-az-u*vz)<.04)return true;
+        }
+      }
+    }
+    return false;
+  }
   function doorContact(id, position, open) {
     const [x,y,z]=position;
     const [hx,,hz]=hinges.get(id);
@@ -213,7 +236,7 @@ export function buildWorld(data, bytes) {
   const contains=(t,p)=>{const q=new Vector3(p[0],p[1]+.8,p[2]).applyMatrix4(t.inverse);return ['x','y','z'].every((a,i)=>Math.abs(q[a]-t.center[i])<=t.size[i]/2+.15);};
   const spawn=xyz(data.markers.player[0]);spawn[1]=floors(spawn[0],spawn[2]).find(h=>h<spawn[1]-.3)??0;
   const power=xyz(data.markers.powerbox_large_02[0]);power[1]+=.8;
-  return {data,triggerVolumes,contains,nodes,objects,root,enabled,xyz,points,doors,exit:{id:exit.id,p:xyz(exit.id)},power,spawn,floors,blocked,move,clear,sight,triangles,doorContact};
+  return {data,triggerVolumes,contains,nodes,objects,root,enabled,xyz,points,doors,exit:{id:exit.id,p:xyz(exit.id)},power,spawn,floors,blocked,move,clear,sight,triangles,doorContact,doorHitsWall};
 }
 
 const navCache=new WeakMap();

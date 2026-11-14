@@ -53,3 +53,8 @@
  #menu .original-title{left:36%}
  .ngui-main-actions button{left:77%}
 }
+#menu .original-title {left:29%;max-width:53%}
+.ngui-main-actions button {left:79%;max-width:39%}
+#end.caught #retryDifficulty {display:block;margin:0 auto 10px}
+#end.caught select {font:inherit}
+@keyframes death-fade {from{background:#000d}to{background:#000}}
