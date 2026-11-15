@@ -155,11 +155,12 @@ export function createGame(world,nav,options={}){
     // Pick the unobstructed portion of the swing if a survivor occupies its path.
     const step=Math.max(-.12,Math.min(.12,velocity*dt));
     const oldContacts=survivors.map(player=>world.doorContact(door.id,player.p,open)?.distance??Infinity);
+    const [minAngle,maxAngle]=world.doorSwingLimits(door.id);
     let fraction=1;
     for(;fraction>=1/32;fraction/=2){
-      const next=Math.max(-Math.PI/2,Math.min(Math.PI/2,angle+step*fraction));
+      const next=Math.max(minAngle,Math.min(maxAngle,angle+step*fraction));
       open[door.id]=next/scale;
-      if(!world.doorHitsWall(door.id,open,angle)&&!survivors.some((player,i)=>{
+      if(!survivors.some((player,i)=>{
         const gap=world.doorContact(door.id,player.p,open)?.distance??Infinity;
         return gap<.20&&gap<oldContacts[i]-1e-5;
       }))break;
@@ -167,7 +168,11 @@ export function createGame(world,nav,options={}){
     if(fraction<1/32){open[door.id]=angle/scale;velocity=0;}
     if(Math.abs(open[door.id])<.002&&Math.abs(velocity)<.01){
       delete open[door.id];hingeVelocity.delete(door.id);
-    }else hingeVelocity.set(door.id,Math.abs(open[door.id]*scale)>=Math.PI/2-1e-6?0:velocity);
+    }else{
+      const finalAngle=open[door.id]*scale;
+      const againstStop=(velocity>0&&finalAngle>=maxAngle-1e-6)||(velocity<0&&finalAngle<=minAngle+1e-6);
+      hingeVelocity.set(door.id,againstStop?0:(finalAngle-angle)/dt);
+    }
   }
   for(const p of survivors){
   if(p.vision<=elapsed){

@@ -153,6 +153,22 @@ export function buildWorld(data, bytes) {
     }
     return false;
   }
+  const swingLimits=new Map();
+  function doorSwingLimits(id){
+    if(!swingLimits.has(id)){
+      const sweep=direction=>{
+        let previous=0;
+        for(let i=1;i<=45;i++){
+          const angle=direction*i*Math.PI/90;
+          if(doorHitsWall(id,{[id]:angle/1.48},previous))break;
+          previous=angle;
+        }
+        return previous;
+      };
+      swingLimits.set(id,[sweep(-1),sweep(1)]);
+    }
+    return swingLimits.get(id);
+  }
   function doorContact(id, position, open) {
     const [x,y,z]=position;
     const [hx,,hz]=hinges.get(id);
@@ -243,7 +259,7 @@ export function buildWorld(data, bytes) {
   const contains=(t,p)=>{const q=new Vector3(p[0],p[1]+.8,p[2]).applyMatrix4(t.inverse);return ['x','y','z'].every((a,i)=>Math.abs(q[a]-t.center[i])<=t.size[i]/2+.15);};
   const spawn=xyz(data.markers.player[0]);spawn[1]=floors(spawn[0],spawn[2]).find(h=>h<spawn[1]-.3)??0;
   const power=xyz(data.markers.powerbox_large_02[0]);power[1]+=.8;
-  return {data,triggerVolumes,contains,nodes,objects,root,enabled,xyz,points,doors,exit:{id:exit.id,p:xyz(exit.id)},power,spawn,floors,blocked,move,clear,sight,triangles,doorContact,doorHitsWall};
+  return {data,triggerVolumes,contains,nodes,objects,root,enabled,xyz,points,doors,exit:{id:exit.id,p:xyz(exit.id)},power,spawn,floors,blocked,move,clear,sight,triangles,doorContact,doorHitsWall,doorSwingLimits};
 }
 
 const navCache=new WeakMap();
