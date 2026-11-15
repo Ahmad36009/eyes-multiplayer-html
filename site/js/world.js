@@ -1,3 +1,4 @@
+const krasueAllowedDoors=new Set([1262,1267,1578,1608,1806]);
 import {Object3D,Bone,Vector3,Matrix4,BoxGeometry} from './three.js';
 
 export function buildWorld(data, bytes) {
@@ -165,16 +166,18 @@ export function buildWorld(data, bytes) {
         const [ax,az,bx,bz]=edge,dx=bx-ax,dz=bz-az;
         const t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz||1)));
         const px=ax+t*dx,pz=az+t*dz,distance=Math.hypot(x-px,z-pz);
-        if(distance<1e-7||distance>.24||contact&&distance>=contact.distance)continue;
+        if(distance<1e-7||distance>.29||contact&&distance>=contact.distance)continue;
         const nx=(x-px)/distance,nz=(z-pz)/distance;
         contact={distance,nx,nz,lever:(pz-hz)*nx-(px-hx)*nz};
       }
     }
     return contact;
   }
+
   function blocked(x,y,z,open,r=.21,ignoreDoors=false,ghost=false,onlyDoor=0){
     for(const t of ghost?around(x,z,r):nearby(x,z,r,open)){
       if(onlyDoor&&t[10]!==onlyDoor)continue;
+      if(ghost&&t[10]&&krasueAllowedDoors.has(t[10]))continue;
       if(ghost&&!t[12]&&!t[10])continue;
       if(Math.abs(t[9])>.73 || t[10]&&(ignoreDoors||!ghost&&open[t[10]]&&!hinges.has(t[10])))continue;
       for(const h of [.48,1.12]){
@@ -275,13 +278,24 @@ export function navigation(world,{ghost=false}={}){
       }
     }
   }
-  if(ghost&&!world.data.ghostDoorsFiltered){
-    const doorPositions=world.doors.map(d=>world.xyz(d.id));
-    for(const n of nodes)n.edges=n.edges.filter(id=>{
-      if(!doorPositions.some(p=>Math.abs(p[1]-n.p[1])<2.5&&Math.hypot(p[0]-n.p[0],p[2]-n.p[2])<2.5))return true;
-      const to=nodes[id].p,probe=world.move(n.p,to[0]-n.p[0],to[2]-n.p[2],{});
-      return Math.hypot(...probe.map((v,i)=>v-to[i]))<.08;
-    });
+  if(ghost){
+    const allowedPositions=world.doors.filter(door=>krasueAllowedDoors.has(door.id)).map(door=>world.xyz(door.id));
+    for(const node of nodes){
+      const [x,y,z]=node.p;
+      if(!allowedPositions.some(p=>Math.abs(p[1]-y)<2.5&&Math.hypot(p[0]-x,p[2]-z)<2.5))continue;
+      const i=Math.round(x/unit),j=Math.round(z/unit);
+      const edges=new Set(node.edges);
+      for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++){
+        if(!di&&!dj)continue;
+        for(const to of grid.get(k(i+di,j+dj))||[]){
+          if(edges.has(to.id)||Math.abs(to.p[1]-y)>.53)continue;
+          if(world.blocked(x,y,z,empty,.20)||world.blocked(...to.p,empty,.20))continue;
+          const probe=world.move(node.p,to.p[0]-x,to.p[2]-z,empty);
+          if(Math.hypot(...probe.map((v,index)=>v-to.p[index]))<.08)edges.add(to.id);
+        }
+      }
+      node.edges=[...edges];
+    }
   }
   function near(p){
     const x=Math.round(p[0]/unit),z=Math.round(p[2]/unit);

@@ -396,7 +396,7 @@ function pause(next='pause'){
   $('pauseSensitivity').value=$('sensitivity').value;
   $('pauseBrightness').value=$('brightness').value;
   $('pauseSensitivityLabel').innerHTML=coarse?'touch<br>sensitivity':'mouse<br>sensitivity';
-  $('pauseText').textContent=room?'The multiplayer round is still running.':'The house can wait.';
+  $('pauseText').textContent=room?'The multiplayer round is still running.':'';
   show(next);
 }
 function resume(){show('game');lock();}
@@ -471,6 +471,7 @@ bindMultiTouchButton('touchUse',use);
 bindMultiTouchButton('touchEye',()=>action.eye=true);
 bindMultiTouchButton('touchRun',()=>{$('touchRun').classList.toggle('active',runTouch=!runTouch);});
 bindMultiTouchButton('chatToggle',()=>{keys.clear();stick={x:0,z:0};if(document.pointerLockElement)document.exitPointerLock();set('chatForm',true);$('chatText').focus();});
+let nextPromptCheck=0;
 function findInteraction(s,me){
   const candidates=new Map([...s.items.filter(item=>!item.taken&&!item.hidden),...s.doors.filter(door=>!door.push)].map(item=>[world.objects.get(item.id==='exit'?world.exit.id:item.id),item]));
   camera.getWorldDirection(lookDir);
@@ -788,8 +789,9 @@ function draw(now,dt){
     set('mapButton',!role);
     $('touchUse').textContent=role?'Attack':'Use';set('touchEye',!role);
     if(now>eventUntil){$('message').textContent='';if(!s.ghost.hunting)$('danger').textContent='';}
-    target=null;
-    if(!role&&!vision&&me.alive&&screen==='game'){
+    if(role||vision||!me.alive||screen!=='game')target=null;
+    else if(now>=nextPromptCheck){
+      nextPromptCheck=now+65;
       target=findInteraction(s,me);
     }
     $('prompt').textContent=target?(coarse?'':'E · ')+labels[target.type]:'';
@@ -839,15 +841,35 @@ let storyTimer=0;
 function beginStory(){
  storyPage=0;show('story');
  const count={casual:12,normal:20,hard:30}[$('difficulty').value];
- const transcript="> just wanna talk 'bout this break-in business\n> already checked it for ya\n> you could get at least "+count+" bags\n> i have the front door key\n> anything else?\n> make a map, that place is huge\n> >> logged out <<";
- const lines=transcript.split('\n');let line=0;
- clearInterval(storyTimer);$('storyText').textContent='';
- const next=()=>{if(screen!=='story'||storyPage||line>=lines.length){clearInterval(storyTimer);return;} $('storyText').textContent+=(line?'\n':'')+lines[line++];sound('chatPing',.6);};
- next();storyTimer=setInterval(next,550);
+ const lines=["> just wanna talk 'bout this break-in business",
+  '> already checked it for ya', '> you could get at least '+count+' bags',
+  '> i have the front door key', '> anything else?', '> make a map, that place is huge',
+  '>  >> logged out <<'];
+ let line=0;
+ clearTimeout(storyTimer);
+ $('storyText').textContent='';
+ $('storyContinue').textContent='Press [any key] to skip';
+ const next=()=>{
+   if(screen!=='story'||storyPage)return;
+   if(line===lines.length){
+     $('storyContinue').textContent='Press [any key] to continue';
+     return;
+   }
+   const message=document.createElement('span');
+   message.textContent=new Date().toLocaleTimeString()+lines[line]+'\n';
+   if(line===4)message.style.color='#00ff00';
+   if(line===6)message.style.color='#ff0000';
+   $('storyText').append(message);
+   line++;
+   sound('chatPing',.6);
+   storyTimer=setTimeout(next,1700+Math.random()*1300);
+ };
+ storyTimer=setTimeout(next,2000);
 }
 function advanceStory(){
- clearInterval(storyTimer);
+ clearTimeout(storyTimer);
  if(storyPage++===0){
+  $('storyContinue').textContent='Press [any key] to continue';
   const count={casual:12,normal:20,hard:30}[$('difficulty').value];
   $('storyText').textContent='LEVEL: '+$('difficulty').value+'\n\n* Find at least '+count+' money bags then get back to the exit\n* Hide and/or run from threats\n* Preserve your stamina for dire situations\n* Use a map and Eyes to move safely';
  }else enter();

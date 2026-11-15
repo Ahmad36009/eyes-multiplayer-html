@@ -154,11 +154,15 @@ export function createGame(world,nav,options={}){
     if(!angle&&Math.abs(velocity)<.001)continue;
     // Pick the unobstructed portion of the swing if a survivor occupies its path.
     const step=Math.max(-.12,Math.min(.12,velocity*dt));
+    const oldContacts=survivors.map(player=>world.doorContact(door.id,player.p,open)?.distance??Infinity);
     let fraction=1;
     for(;fraction>=1/32;fraction/=2){
       const next=Math.max(-Math.PI/2,Math.min(Math.PI/2,angle+step*fraction));
       open[door.id]=next/scale;
-      if(!world.doorHitsWall(door.id,open,angle)&&!survivors.some(player=>world.blocked(...player.p,open,.20,false,false,door.id)))break;
+      if(!world.doorHitsWall(door.id,open,angle)&&!survivors.some((player,i)=>{
+        const gap=world.doorContact(door.id,player.p,open)?.distance??Infinity;
+        return gap<.20&&gap<oldContacts[i]-1e-5;
+      }))break;
     }
     if(fraction<1/32){open[door.id]=angle/scale;velocity=0;}
     if(Math.abs(open[door.id])<.002&&Math.abs(velocity)<.01){
