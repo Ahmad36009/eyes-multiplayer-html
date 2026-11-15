@@ -27,12 +27,12 @@ export function createGame(world,nav,options={}){
  const items=[];
  for(const [tag,count] of [[20014,12],[20015,6],[20016,12],[20019,settings.eyes],[20020,settings.eyes],[20021,settings.eyes]])items.push(...shuffle(world.points.filter(p=>p.tag===tag)).slice(0,count));
  items.push(...shuffle(world.points.filter(p=>p.type==='key')).slice(0,1),...world.points.filter(p=>p.type==='code'));
- const exit={id:'exit',type:'exit',p:[world.exit.p[0]+1.48,world.exit.p[1]+.87,world.exit.p[2]]};items.push(exit);
+ const exit={id:'exit',type:'exit',p:[world.exit.p[0]+1.48,world.exit.p[1]+.87,world.exit.p[2]]};
  const printer=[...world.nodes.values()].find(n=>n.behaviours.Printer),printed=resolve(printer?.behaviours.Printer.page);
  if(printed)items.push({id:printed.id,type:'eye',p:world.xyz(printed.id),hidden:true});
  for(const item of items)item.taken=false;
  const lockedNode=[...world.nodes.values()].find(n=>n.behaviours.DoorLockedPavement),locked=resolve(lockedNode?.behaviours.DoorLockedPavement.door);
- const doors=world.doors.filter(n=>world.enabled(n.id)).map(n=>{
+ const doors=world.doors.filter(n=>world.enabled(n.id)&&n.id!==world.exit.id&&n.id!==1746).map(n=>{
   const p=[...world.xyz(n.id)];p[1]+=.83;
   const tris=world.triangles.filter(t=>t[10]===n.id);
   if(tris.length)for(const axis of [0,2])p[axis]=(Math.min(...tris.flatMap(t=>[t[axis],t[axis+3],t[axis+6]]))+Math.max(...tris.flatMap(t=>[t[axis],t[axis+3],t[axis+6]])))/2;
@@ -69,7 +69,6 @@ export function createGame(world,nav,options={}){
    if(item.locked==='code'&&!done.code)return emit('hint','Locked. Find the combination.');
    open[item.id]=!open[item.id];emit('door','',{id:item.id,clip:aud(n.behaviours.PlayAnimation?.[open[item.id]?'openSounds':'closeSounds']?.[0])});return;
   }
-  if(item.type==='exit'){if(ready())end('escaped');else emit('hint',`I can't leave yet. I need to find ${settings.bags-bags} bags more.`);return;}
   if(props.includes(item)){
    if(item.type==='Candle'&&done[item.id])return;
    if(item.type==='Printer'){if(done.printer)return;done.printer=true;printerAt=elapsed+5.5;}
@@ -166,7 +165,7 @@ export function createGame(world,nav,options={}){
       }))break;
     }
     if(fraction<1/32){open[door.id]=angle/scale;velocity=0;}
-    if(Math.abs(open[door.id])<.002&&Math.abs(velocity)<.01){
+    if(Math.abs(open[door.id])<.006&&Math.abs(velocity)<.025&&!survivors.some(p=>world.blocked(...p.p,{...open,[door.id]:0},.20,false,false,door.id))){
       delete open[door.id];hingeVelocity.delete(door.id);
     }else{
       const finalAngle=open[door.id]*scale;
@@ -187,6 +186,10 @@ export function createGame(world,nav,options={}){
     }
     p.p=world.move(p.p,(Math.cos(p.yaw)*x+Math.sin(p.yaw)*z)*speed*dt,(-Math.sin(p.yaw)*x+Math.cos(p.yaw)*z)*speed*dt,open);
    }
+  }
+  if(ready()&&distance([p.p[0],p.p[1]+.87,p.p[2]],exit.p)<1.1&&
+     world.clear(p.p,[exit.p[0],exit.p[1]-.87,exit.p[2]],open,.8)){
+    end('escaped');return;
   }
   for(const tr of world.triggerVolumes){
    if(visited.has(tr.id)||!world.contains(tr,p.p))continue;
@@ -264,4 +267,5 @@ export function createGame(world,nav,options={}){
  function snapshot(){return {mode,objective:'classic',difficulty,stage,elapsed,bags,required:settings.bags,winner,ready:ready(),keyFound,open:{...open},done:{...done},ghost:{...ghost},ending,players:[...players.values()].map(({input,...p})=>({...p})),items:items.map(p=>({...p})),doors:[...doors,...props],events:[...events]};}
  return {add,remove,start,input,tick,snapshot};
 }
+
 

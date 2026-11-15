@@ -323,10 +323,14 @@ function apply(s){
     $('endLabel').textContent=win?'Victory':'Defeat';
     $('endTitle').textContent=s.winner==='escaped'?'Escaped':'Caught';
     $('endText').textContent=s.winner==='escaped'?"hi. congratz, man. nicely done.\nwhy don’t you answer my calls?":'You were caught inside the house.';
-    audio.clear();if(s.winner==='escaped')audio.event({type:'escaped'},s);
+    const lingering=s.difficulty==='scary'&&s.winner==='caught'&&!monster;
+    if(!lingering)audio.clear();
+    if(s.winner==='escaped')audio.event({type:'escaped'},s);
+    $('end').classList.toggle('scary-scare',lingering);
     const caught=s.winner==='caught';$('endDifficulty').value=s.difficulty;$('replay').hidden=!!room;
     $('end').classList.toggle('caught',caught);
-    if(caught){
+    if(lingering)show('end');
+    else if(caught){
       $('shade').classList.add('death-fade');
       setTimeout(()=>{
         if(state?.stage==='ended'&&state.winner==='caught')show('end');
@@ -738,9 +742,10 @@ function draw(now,dt){
     if(!viewP||viewP.distanceTo(desired)>3)viewP=desired.clone();
     viewP.lerp(desired,1-Math.exp(-dt*22));camera.position.copy(me.role==='monster'?desired:viewP);camera.rotation.set(lookPitch,-lookYaw,0,'YXZ');
     ghostView=vision||me.role==='monster';
+    if(vision)scene.fog=null;
     const alive=new Set();
     for(const p of s.players){
-      if(p.id===id||p.id===spectate?.id||p.role==='monster'||!p.alive)continue;
+      if((p.id===id&&!vision)||p.id===spectate?.id||p.role==='monster'||!p.alive)continue;
       alive.add(p.id);let a=actors.get(p.id);
       if(!a){a=modelPlayer();actors.set(p.id,a);a.position.set(p.p[0],p.p[1],-p.p[2]);a.rotation.y=-p.yaw;}
       else{
@@ -787,7 +792,7 @@ function draw(now,dt){
     }
     const role=me.role==='monster';
     $('danger').textContent=s.ghost.hunting?'RUn!!!':'';
-    $('counter').textContent=role?'Monster · '+s.players.filter(p=>p.role==='survivor'&&p.alive).length+' alive':s.bags+' / '+s.required+' bags · '+me.eyes+' eyes';
+    $('counter').textContent=scary&&!role?(s.required-s.bags)+' bags left':role?'Monster · '+s.players.filter(p=>p.role==='survivor'&&p.alive).length+' alive':s.bags+' / '+s.required+' bags · '+me.eyes+' eyes';
     const tasks=objectives[s.objective].steps.filter(k=>!s.done[k]);
     $('checklist').textContent=role?'E / click to attack':!me.alive?'Spectating':vision?'Seeing through the monster':s.ready?'Return to the front door':tasks.length?'Objective · '+labels[tasks[0]]:'Find money bags';
     set('mapButton',!role);
@@ -801,7 +806,11 @@ function draw(now,dt){
     $('prompt').textContent=target?(coarse?'':'E · ')+labels[target.type]:'';
     audio.update(s,me,dt,screen==='game', {active:!!step,run:keys.has('ShiftLeft')||keys.has('ShiftRight')||runTouch});
     ui.update(s,me,target);
-    if((s.stage==='ending'&&s.winner==='caught')||(dead&&s.elapsed-(me.caughtAt??-99)<1.75)){
+    if(scary&&s.stage==='ended'&&s.winner==='caught'&&!role){
+      camera.lookAt(s.ghost.p[0],s.ghost.p[1]+1.45,-s.ghost.p[2]);
+      camera.fov=24+Math.sin(now*.02)*2;camera.updateProjectionMatrix();
+      $('shade').style.background='';
+    }else if((s.stage==='ending' &&s.winner==='caught')||(dead&&s.elapsed-(me.caughtAt??-99)<1.75)){
       camera.lookAt(s.ghost.p[0],s.ghost.p[1]+1.45,-s.ghost.p[2]);
       const scareTime=s.stage==='ending'?1.75-s.ending:s.elapsed-me.caughtAt;
       camera.fov=60-50*Math.min(1,scareTime/.5);camera.updateProjectionMatrix();
@@ -813,7 +822,7 @@ function draw(now,dt){
     camera.rotation.set(-.035,1.31+Math.sin(now*.00021)*.12,0,'YXZ');
     if(ghostVisual)ghostVisual.visible=false;
   }
-  originalAmbient.value=scary?(ghostView?.38:.095):ghostView?3:audio?.flash(s?.elapsed||0)?1.5:+$('brightness').value;
+  originalAmbient.value=scary?(ghostView?3:s.stage==='ended'&&s.winner==='caught'?.25:.095):ghostView?3:audio?.flash(s?.elapsed||0)?1.5:+$('brightness').value;
   if(me&&!me.alive&&s.stage==='running'&&s.elapsed-me.caughtAt>=1.75){const t=s.elapsed-me.caughtAt;$('shade').style.background=t>=1.75&&t<2.45?'rgba(0,0,0,'+Math.min(1,(t-1.75)/.35)+')':'';}
   flash.update(dt,s?.elapsed||0,!ghostView&&flashOn&&inGame);
   if(scary)flash.spot.intensity*=.8;
@@ -907,4 +916,5 @@ function startMenuMusic(){
 document.addEventListener('pointerdown',startMenuMusic);
 document.getElementById('focusGate')?.addEventListener('click',startMenuMusic);
 document.addEventListener('keydown',startMenuMusic);
+
 

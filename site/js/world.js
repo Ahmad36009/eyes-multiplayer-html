@@ -182,7 +182,7 @@ export function buildWorld(data, bytes) {
         const [ax,az,bx,bz]=edge,dx=bx-ax,dz=bz-az;
         const t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz||1)));
         const px=ax+t*dx,pz=az+t*dz,distance=Math.hypot(x-px,z-pz);
-        if(distance<1e-7||distance>.29||contact&&distance>=contact.distance)continue;
+        if(distance<1e-7||distance>.36||contact&&distance>=contact.distance)continue;
         const nx=(x-px)/distance,nz=(z-pz)/distance;
         contact={distance,nx,nz,lever:(pz-hz)*nx-(px-hx)*nz};
       }
@@ -346,3 +346,4 @@ export function navigation(world,{ghost=false}={}){
   navCache.set(originalWorld,{...navCache.get(originalWorld),[key]:result});
   return result;
 }
+

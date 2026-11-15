@@ -43,7 +43,7 @@ export function soundscape(data,world,volume){
    if(e.kind==='Lightning'){
     const refs=b.lightnings||[];if(refs[0])playSource(refs[0],{ambient:true});if(refs[1])pending.push({at:state.elapsed+1.22,ref:refs[1]});lightningUntil=state.elapsed+1.5;
    }else if(e.clip)play(e.clip,{p:world.xyz(e.id),slot:'trigger-'+e.id,ambient:true,volume:n.audio?.volume??1,max:n.audio?.max??15});
-  }else if(e.type==='shout3'){clear();if(state.difficulty==='scary')play('pc-krasue-scare');else playSource(world.nodes.get(data.markers.girlMain[0]).behaviours.Girl.shout,{p:null});}
+  }else if(e.type==='shout3'){clear();if(state.difficulty==='scary')play('pc-krasue-scare',{slot:'scary-scare',loop:state.stage==='ending'});else playSource(world.nodes.get(data.markers.girlMain[0]).behaviours.Girl.shout,{p:null});}
   else if(e.type==='escaped'){clear();play('mmmEnd');}
   else if(data.sounds[e.type])play(e.type,{ui:true});
  }
@@ -52,20 +52,20 @@ export function soundscape(data,world,volume){
   listener=player.p;yaw=player.yaw;
   const scary=state.difficulty==='scary';
   const same=floorOf(player.p)===floorOf(state.ghost.p);
-  silenceAmbience=scary&&same;
+  silenceAmbience=scary;
   if(scary)for(const shaker of shakers){
    world.objects.get(shaker.n.id).quaternion.copy(shaker.base);
    stop('shake-'+shaker.n.id);
   }
-  if(paused===playing){paused=!playing;for(const v of voices.values()){if(paused)v.audio.pause();else v.audio.play().catch(()=>{});}}
+  if(paused===playing){paused=!playing;for(const v of voices.values()){if(v.slot==='scary-scare'&&v.audio.loop)continue;if(paused)v.audio.pause();else v.audio.play().catch(()=>{});}}
   for(const v of voices.values())adjust(v);
   if(!playing)return;
   if(state.stage!=='running'){for(const k of ['krasue-breath','krasue-hum','house-wind','stamina-breath','footstep'])stop(k);return;}
   const time=state.elapsed,near=same&&Math.hypot(...player.p.map((x,i)=>x-state.ghost.p[i]))<15;
   function loop(ref,on,slot){if(on&&!voices.has(slot))playSource(ref,{slot,p:null});else if(!on)stop(slot);}
   loop(ai.breath,!scary&&near,'krasue-breath');loop(ai.mmm,!scary&&same,'krasue-hum');
-  if(!same&&!voices.has('house-wind'))play('wind',{slot:'house-wind',loop:true,volume:.65});
-  if(same)stop('house-wind');loop(foot.hBreathing,player.energy<50,'stamina-breath');
+  if(!scary&&!same&&!voices.has('house-wind'))play('wind',{slot:'house-wind',loop:true,volume:.65});
+  if(same||scary)stop('house-wind');loop(foot.hBreathing,player.energy<50,'stamina-breath');
   const running=player.energy>0&&moving.run,interval=running?foot.runAudioSpeed:foot.walkAudioSpeed;
   if(moving.active&&player.vision<=time&&time-lastStep>=interval){lastStep=time;const list=running?foot.runSteps:foot.walkSteps;playSource(foot.steps,{clip:clip(list[Math.floor(Math.random()*list.length)]),p:null,slot:'footstep'});}
   for(const s of shakers){
@@ -83,4 +83,5 @@ export function soundscape(data,world,volume){
  }
  return {play,start,event,update,clear,clip,shakers,flash:time=>time<lightningUntil&&Math.sin(time*50)>.1};
 }
+
 
