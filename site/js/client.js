@@ -326,11 +326,9 @@ function apply(s){
     const lingering=s.difficulty==='scary'&&s.winner==='caught'&&!monster;
     if(!lingering)audio.clear();
     if(s.winner==='escaped')audio.event({type:'escaped'},s);
-    $('end').classList.toggle('scary-scare',lingering);
     const caught=s.winner==='caught';$('endDifficulty').value=s.difficulty;$('replay').hidden=!!room;
     $('end').classList.toggle('caught',caught);
-    if(lingering)show('end');
-    else if(caught){
+    if(caught){
       $('shade').classList.add('death-fade');
       setTimeout(()=>{
         if(state?.stage==='ended'&&state.winner==='caught')show('end');
@@ -806,11 +804,7 @@ function draw(now,dt){
     $('prompt').textContent=target?(coarse?'':'E · ')+labels[target.type]:'';
     audio.update(s,me,dt,screen==='game', {active:!!step,run:keys.has('ShiftLeft')||keys.has('ShiftRight')||runTouch});
     ui.update(s,me,target);
-    if(scary&&s.stage==='ended'&&s.winner==='caught'&&!role){
-      camera.lookAt(s.ghost.p[0],s.ghost.p[1]+1.45,-s.ghost.p[2]);
-      camera.fov=24+Math.sin(now*.02)*2;camera.updateProjectionMatrix();
-      $('shade').style.background='';
-    }else if((s.stage==='ending' &&s.winner==='caught')||(dead&&s.elapsed-(me.caughtAt??-99)<1.75)){
+    if((s.stage==='ending' &&s.winner==='caught')||(dead&&s.elapsed-(me.caughtAt??-99)<1.75)){
       camera.lookAt(s.ghost.p[0],s.ghost.p[1]+1.45,-s.ghost.p[2]);
       const scareTime=s.stage==='ending'?1.75-s.ending:s.elapsed-me.caughtAt;
       camera.fov=60-50*Math.min(1,scareTime/.5);camera.updateProjectionMatrix();
@@ -822,7 +816,7 @@ function draw(now,dt){
     camera.rotation.set(-.035,1.31+Math.sin(now*.00021)*.12,0,'YXZ');
     if(ghostVisual)ghostVisual.visible=false;
   }
-  originalAmbient.value=scary?(ghostView?3:s.stage==='ended'&&s.winner==='caught'?.25:.095):ghostView?3:audio?.flash(s?.elapsed||0)?1.5:+$('brightness').value;
+  originalAmbient.value=scary?(ghostView?3:.095):ghostView?3:audio?.flash(s?.elapsed||0)?1.5:+$('brightness').value;
   if(me&&!me.alive&&s.stage==='running'&&s.elapsed-me.caughtAt>=1.75){const t=s.elapsed-me.caughtAt;$('shade').style.background=t>=1.75&&t<2.45?'rgba(0,0,0,'+Math.min(1,(t-1.75)/.35)+')':'';}
   flash.update(dt,s?.elapsed||0,!ghostView&&flashOn&&inGame);
   if(scary)flash.spot.intensity*=.8;

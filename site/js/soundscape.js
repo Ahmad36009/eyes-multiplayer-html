@@ -43,7 +43,7 @@ export function soundscape(data,world,volume){
    if(e.kind==='Lightning'){
     const refs=b.lightnings||[];if(refs[0])playSource(refs[0],{ambient:true});if(refs[1])pending.push({at:state.elapsed+1.22,ref:refs[1]});lightningUntil=state.elapsed+1.5;
    }else if(e.clip)play(e.clip,{p:world.xyz(e.id),slot:'trigger-'+e.id,ambient:true,volume:n.audio?.volume??1,max:n.audio?.max??15});
-  }else if(e.type==='shout3'){clear();if(state.difficulty==='scary')play('pc-krasue-scare',{slot:'scary-scare',loop:state.stage==='ending'});else playSource(world.nodes.get(data.markers.girlMain[0]).behaviours.Girl.shout,{p:null});}
+  }else if(e.type==='shout3'){clear();if(state.difficulty==='scary')play('pc-krasue-scare',{slot:'scary-scare'});else playSource(world.nodes.get(data.markers.girlMain[0]).behaviours.Girl.shout,{p:null});}
   else if(e.type==='escaped'){clear();play('mmmEnd');}
   else if(data.sounds[e.type])play(e.type,{ui:true});
  }
@@ -57,7 +57,7 @@ export function soundscape(data,world,volume){
    world.objects.get(shaker.n.id).quaternion.copy(shaker.base);
    stop('shake-'+shaker.n.id);
   }
-  if(paused===playing){paused=!playing;for(const v of voices.values()){if(v.slot==='scary-scare'&&v.audio.loop)continue;if(paused)v.audio.pause();else v.audio.play().catch(()=>{});}}
+  if(paused===playing){paused=!playing;for(const v of voices.values()){if(v.slot==='scary-scare')continue;if(paused)v.audio.pause();else v.audio.play().catch(()=>{});}}
   for(const v of voices.values())adjust(v);
   if(!playing)return;
   if(state.stage!=='running'){for(const k of ['krasue-breath','krasue-hum','house-wind','stamina-breath','footstep'])stop(k);return;}
