@@ -1,4 +1,4 @@
-# Eyes The Horror Game - Multiplayer
+# Eyes: The Horror Game - Multiplayer
 
 An unofficial browser recreation of *Eyes: The Horror Game*. Explore a dark house, collect money bags, and make it back to the exit while Krasue hunts you. Use eye runes to see through her eyes and plan your route.
 
