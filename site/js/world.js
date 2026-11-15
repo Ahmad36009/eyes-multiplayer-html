@@ -147,6 +147,11 @@ export function buildWorld(data, bytes) {
           const px=hx+pc*dx+ps*dz,pz=hz-ps*dx+pc*dz;
           const oldU=Math.max(0,Math.min(1,((px-ax)*vx+(pz-az)*vz)/(vx*vx+vz*vz||1)));
           const before=Math.hypot(px-ax-oldU*vx,pz-az-oldU*vz);
+          // The closed leaf overlaps the frame clearance margin near
+          // the latch. Permit it to clear the frame in either direction.
+          const closedU=Math.max(0,Math.min(1,((t[i]-ax)*vx+(t[i+2]-az)*vz)/(vx*vx+vz*vz||1)));
+          const closedGap=Math.hypot(t[i]-ax-closedU*vx,t[i+2]-az-closedU*vz);
+          if(Math.abs(angle)<Math.PI/5&&closedGap<.18)continue;
           if(before>=.04&&Math.hypot(x-ax-u*vx,z-az-u*vz)<.04)return true;
         }
       }
