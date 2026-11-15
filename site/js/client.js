@@ -711,9 +711,13 @@ function modelPlayerFallback(){
   group.add(torso,head,beam);scene.add(group);return group;
 }
 const pos=new T.Vector3(),lookDir=new T.Vector3(),twist=new T.Quaternion(),axis=new T.Vector3(0,1,0);
+const scaryFog=new T.FogExp2(0x050505,.11);
 function draw(now,dt){
   const s=state, me=s?.players.find(p=>p.id===id);
   const inGame=!!me&&s.stage!=='lobby';
+  const scary=inGame&&s.difficulty==='scary';
+  document.body.classList.toggle('actually-scary',scary);
+  scene.fog=scary?scaryFog:null;
   let spectate=null,ghostView=false;
   if(inGame){
     const vision=me.vision>s.elapsed,dead=!me.alive;
@@ -809,9 +813,10 @@ function draw(now,dt){
     camera.rotation.set(-.035,1.31+Math.sin(now*.00021)*.12,0,'YXZ');
     if(ghostVisual)ghostVisual.visible=false;
   }
-  originalAmbient.value=ghostView?3:audio?.flash(s?.elapsed||0)?1.5:+$('brightness').value;
+  originalAmbient.value=scary?(ghostView?.38:.095):ghostView?3:audio?.flash(s?.elapsed||0)?1.5:+$('brightness').value;
   if(me&&!me.alive&&s.stage==='running'&&s.elapsed-me.caughtAt>=1.75){const t=s.elapsed-me.caughtAt;$('shade').style.background=t>=1.75&&t<2.45?'rgba(0,0,0,'+Math.min(1,(t-1.75)/.35)+')':'';}
   flash.update(dt,s?.elapsed||0,!ghostView&&flashOn&&inGame);
+  if(scary)flash.spot.intensity*=.8;
   renderer.render(scene,camera);
 }
 function drawMap(){
@@ -840,7 +845,7 @@ let storyPage=0;
 let storyTimer=0;
 function beginStory(){
  storyPage=0;show('story');
- const count={casual:12,normal:20,hard:30}[$('difficulty').value];
+ const count=difficulties[$('difficulty').value].bags;
  const lines=["> just wanna talk 'bout this break-in business",
   '> already checked it for ya', '> you could get at least '+count+' bags',
   '> i have the front door key', '> anything else?', '> make a map, that place is huge',
@@ -870,7 +875,7 @@ function advanceStory(){
  clearTimeout(storyTimer);
  if(storyPage++===0){
   $('storyContinue').textContent='Press [any key] to continue';
-  const count={casual:12,normal:20,hard:30}[$('difficulty').value];
+  const count=difficulties[$('difficulty').value].bags;
   $('storyText').textContent='LEVEL: '+$('difficulty').value+'\n\n* Find at least '+count+' money bags then get back to the exit\n* Hide and/or run from threats\n* Preserve your stamina for dire situations\n* Use a map and Eyes to move safely';
  }else enter();
 }
@@ -902,3 +907,4 @@ function startMenuMusic(){
 document.addEventListener('pointerdown',startMenuMusic);
 document.getElementById('focusGate')?.addEventListener('click',startMenuMusic);
 document.addEventListener('keydown',startMenuMusic);
+

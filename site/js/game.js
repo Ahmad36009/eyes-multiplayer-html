@@ -1,6 +1,6 @@
 import {navigation} from './world.js';
 // Gameplay values and rules transcribed from the supplied Unity 4 assemblies.
-export const difficulties={casual:{bags:12,eyes:2,speed:2.5},normal:{bags:20,eyes:3,speed:3.5},hard:{bags:30,eyes:4,speed:5}};
+export const difficulties={casual:{bags:12,eyes:2,speed:2.5},normal:{bags:20,eyes:3,speed:3.5},hard:{bags:30,eyes:4,speed:5},scary:{bags:30,eyes:4,speed:5}};
 export const objectives={classic:{name:'Original game',steps:[]}};
 export const labels={bag:'Take money bag',eye:'Take eye',key:'Take basement key',code:'Take safe combination',exit:'Leave the house',door:'Open / close',Printer:'Use printer',Gramofon:'Use gramophone',Phone:'Answer phone',Candle:'Extinguish candle',OpenThing:'Open',ShowFullScreen:'Read'};
 export const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
@@ -264,3 +264,4 @@ export function createGame(world,nav,options={}){
  function snapshot(){return {mode,objective:'classic',difficulty,stage,elapsed,bags,required:settings.bags,winner,ready:ready(),keyFound,open:{...open},done:{...done},ghost:{...ghost},ending,players:[...players.values()].map(({input,...p})=>({...p})),items:items.map(p=>({...p})),doors:[...doors,...props],events:[...events]};}
  return {add,remove,start,input,tick,snapshot};
 }
+
