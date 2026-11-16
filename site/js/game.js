@@ -179,13 +179,14 @@ export function createGame(world,nav,options={}){
       if(!contact||Math.abs(contact.lever)<.015)continue;
       const closing=contact.lever*velocity-vx*contact.nx-vz*contact.nz;
       if(closing<=0)continue;
-      const impulse=closing/(contact.lever**2+.16);
+      const impulse=closing/(contact.lever**2+.28);
       velocity-=impulse*contact.lever;
       if(!hingeVelocity.has(door.id))emit('door','',{id:door.id});
     }
     if(!angle&&Math.abs(velocity)<.001)continue;
     // Pick the unobstructed portion of the swing if a survivor occupies its path.
-    const step=Math.max(-.12,Math.min(.12,velocity*dt));
+    const angularSpeed=Math.max(-2.4,Math.min(2.4,velocity));
+    const step=angularSpeed*dt;
     const oldContacts=survivors.map(player=>world.doorContact(door.id,player.p,open)?.distance??Infinity);
     const [minAngle,maxAngle]=world.doorSwingLimits(door.id);
     let fraction=1;
@@ -209,6 +210,7 @@ export function createGame(world,nav,options={}){
   for(const p of survivors){
   if(p.vision<=elapsed){
    let {x=0,z=0,run}=p.input;if(chaos.has('no-sprint'))run=false;const norm=Math.max(1,Math.hypot(x,z));x/=norm;z/=norm;
+   if(chaos.has('freeze-tag')&&chaos.snapshot(elapsed).age%7>=5.5){x=0;z=0;}
    let speed=run?(p.energy>60?6:p.energy>40?5:p.energy>20?4:3):3;
    if(chaos.has('loose-change')){
     p.sprintTime=run&&(x||z)?(p.sprintTime||0)+dt:0;

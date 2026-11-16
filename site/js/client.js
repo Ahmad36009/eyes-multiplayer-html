@@ -829,7 +829,11 @@ function draw(now,dt){
     for(const [door,o] of doorMeshes){
       if(!world.nodes.get(door).hinge&&world.nodes.get(door).animation?.default)continue;
       twist.copy(o.userData.closed);
-      if(s.open[door])twist.multiply(new T.Quaternion().setFromAxisAngle(axis,1.48*s.open[door]));
+      if(s.open[door]){
+        // Collision angles are in house space. A mirrored parent reverses the local swing.
+        const mirrored=world.nodes.get(door).hinge&&o.parent.matrixWorld.determinant()*house.matrixWorld.determinant()<0;
+        twist.multiply(new T.Quaternion().setFromAxisAngle(axis,(mirrored?-1:1)*1.48*s.open[door]));
+      }
       o.quaternion.copy(twist);
     }
     const role=me.role==='monster';
@@ -855,7 +859,7 @@ function draw(now,dt){
       krasueScareTime=scareTime;
       $('shade').style.background='';
 
-    }else{camera.fov=60;camera.updateProjectionMatrix();$('shade').style.background='';}
+    }else{camera.fov=chaos.includes('tunnel-vision')&&!role&&me.alive&&!vision?38:60;camera.updateProjectionMatrix();$('shade').style.background='';}
 
   }else{
     camera.position.set(world.spawn[0],world.spawn[1]+1.51,-world.spawn[2]);
@@ -976,7 +980,8 @@ function drawChaosHUD(s,me){
   if(s.chaos.potato===me.id)titles.push('You have the potato. Touch a teammate!');
   const red=s.chaos.active.includes('red-light')&&s.chaos.age%6>=4;
   el.style.color=red?'#ff6259':'white';
-  const lines=[Math.ceil(s.chaos.remaining)+'s · Chaos'+(red?' · STOP':''),...titles];
+  const frozen=s.chaos.active.includes('freeze-tag')&&s.chaos.age%7>=5.5&&me.role==='survivor';
+  const lines=[Math.ceil(s.chaos.remaining)+'s · Chaos'+(frozen?' · FROZEN':red?' · STOP':''),...titles];
   const text=lines.join('\n');
   if(text===chaosHudText)return;
   chaosHudText=text;

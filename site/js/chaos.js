@@ -21,9 +21,11 @@ const definitions = [
  ['loose-change','Loose Change','Sprint for two seconds and drop one of your collected bags.'],
  ['window','Window Shopping','Loose bags glow. Hold interact for two seconds to grab one.'],
  ['payday','Payday','Three bonus bags appear until the next bell.'],
- ['light-alert','Lights, Camera, Krasue','Aim your flashlight at Krasue and she spots you.'],
  ['no-sprint','Dead Legs','You cannot sprint until the next bell.'],
  ['overdrive','Overdrive','Everyone moves faster. Krasue moves fastest.'],
+ ['freeze-tag','Freeze Tag','Every seven seconds, survivors freeze in place for 1.5 seconds.'],
+ ['tunnel-vision','Tunnel Vision','Your field of view narrows until the next bell.'],
+ ['keep-moving','Keep Moving','Stay still for two seconds and Krasue learns where you are.'],
  ['last-call','Last Call','During the last ten seconds, bags count double and Krasue moves faster.'],
  ['one-eye','One in the Chamber','Use one Eye for twice as long. Further uses are disabled until the bell.'],
 ];
@@ -61,11 +63,11 @@ export function createChaos(enabled, type, doorwayGroups = [[1546,1924]]) {
    for(const item of items)if(item.chaosBonus&&!item.taken){item.hidden=true;item.chaosBonus=false;}
    active.clear();selectedDoors=[];potato=null;markedBag=null;exitLocked=false;revealBag=null;revealUntil=0;
    start=next;next+=22;
-   for(const p of survivors){p.chaosBags=0;p.chaosEyeUsed=false;p.nextChaosBag=0;p.sprintTime=0;p.bagHold=null;p.bagHoldAt=0;}
+   for(const p of survivors){p.chaosBags=0;p.chaosEyeUsed=false;p.nextChaosBag=0;p.sprintTime=0;p.bagHold=null;p.bagHoldAt=0;p.idleChaos=0;p.chaosPosition=null;}
    if(first==='double'){
     const candidates=roll(survivors).filter(id=>id!=='double');
     const a=pick(candidates);
-    const b=pick(candidates.filter(id=>id!==a&&!(lethal.has(a)&&lethal.has(id))&&!(a==='no-sprint'&&id==='overdrive'||a==='overdrive'&&id==='no-sprint')&&!(doorEffects.has(a)&&doorEffects.has(id))&&!(a==='second-sight'&&id==='one-eye'||a==='one-eye'&&id==='second-sight')&&!(a==='red-tag'&&id==='double-bag'||a==='double-bag'&&id==='red-tag')));
+    const b=pick(candidates.filter(id=>id!==a&&!(lethal.has(a)&&lethal.has(id))&&!(a==='freeze-tag'&&id==='keep-moving'||a==='keep-moving'&&id==='freeze-tag')&&!(a==='no-sprint'&&id==='overdrive'||a==='overdrive'&&id==='no-sprint')&&!(doorEffects.has(a)&&doorEffects.has(id))&&!(a==='second-sight'&&id==='one-eye'||a==='one-eye'&&id==='second-sight')&&!(a==='red-tag'&&id==='double-bag'||a==='double-bag'&&id==='red-tag')));
     active.add(a);if(b)active.add(b);
    }else if(first)active.add(first);
    emit('chaos','',{bundle:first==='double'});
@@ -106,10 +108,11 @@ export function createChaos(enabled, type, doorwayGroups = [[1546,1924]]) {
     if(nextHolder){potato=nextHolder.id;passAt=elapsed+1.5;}
    }
   }
-  if(has('light-alert'))for(const p of survivors){
-   if(!p.alive||!p.input.flash||floor(p.p)!==floor(ghost.p))continue;
-   const x=ghost.p[0]-p.p[0],z=ghost.p[2]-p.p[2],distance=Math.hypot(x,z);
-   if(distance>0&&distance<10&&(Math.sin(p.yaw)*x+Math.cos(p.yaw)*z)/distance>.96&&world.sight(p.p,ghost.p,open))p.revealedUntil=elapsed+3;
+  if(has('keep-moving'))for(const p of survivors){
+   const prior=p.chaosPosition;
+   p.chaosPosition=[...p.p];
+   p.idleChaos=prior&&Math.hypot(p.p[0]-prior[0],p.p[2]-prior[2])<.01?(p.idleChaos||0)+dt:0;
+   if(p.idleChaos>=2)p.revealedUntil=elapsed+2;
   }
   if(has('red-light')&&(elapsed-start)%6>=4)for(const p of survivors){
    if(p.alive&&(p.input.x||p.input.z))p.revealedUntil=elapsed+2;
