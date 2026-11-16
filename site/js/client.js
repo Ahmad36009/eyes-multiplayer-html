@@ -11,6 +11,9 @@ import {createGame,objectives,labels,distance,difficulties,krasueScareSeconds} f
 import {GLTFLoader} from './gltfloader.js';
 import {buildRig,spawnPlayer,animatePlayer} from './playerrig.js';
 
+import {chaosModifiers} from './chaos.js';
+import {showAchievements,recordAchievementRound} from './achievements.js';
+
 const $=id=>document.getElementById(id);
 const set=(id,visible)=>{$(id).hidden=!visible;};
 const coarse=matchMedia('(pointer:coarse)').matches;
@@ -54,7 +57,7 @@ function menuState(){
   $('play').textContent=multi?'create room':'play';
 }
 function settings(){
-  return {lobbyName:$('lobbyName').value,unlisted:$('unlisted').checked,mode:$('mode').value,difficulty:$('difficulty').value,objective:$('objective').value,name:$('name').value,role:$('role').value};
+  return {lobbyName:$('lobbyName').value,unlisted:$('unlisted').checked,mode:$('mode').value,difficulty:$('difficulty').value,gameMode:$('gameMode').value,scaleBags:$('scaleBags').checked,objective:$('objective').value,name:$('name').value,role:$('role').value};
 }
 const ICE={iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:global.stun.twilio.com:3478']},{urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}]};
 const PREFIX='eyes-horror-';
@@ -279,7 +282,11 @@ function resetRound(s){
   animator=legacyAnimator(data,world);for(const n of data.nodes){const o=world.objects.get(n.id);o.position.fromArray(n.p);if(o.userData.flashOffset)o.position.add(o.userData.flashOffset);o.quaternion.fromArray(n.q).normalize();o.scale.fromArray(n.s);}animator.update(0,{},0,{});accumulator=0;
   const p=s.players.find(p=>p.id===id);yaw=p?.yaw||0;pitch=0;viewP=null;lastEvent=-1;eventUntil=0;lastFoot=0;action={};
   for(const o of doorMeshes.values())o.quaternion.copy(o.userData.closed);
-  for(const p of world.points)world.objects.get(p.id).visible=false;
+  for(const p of world.points){
+    const object=world.objects.get(p.id);
+    object.visible=false;
+    object.position.fromArray(world.nodes.get(p.id).p);
+  }
   audio.start();
   for(const a of [breathing,monsterBreath,monsterHum])stop(a);breathing=null;monsterBreath=null;monsterHum=null;
   show('game');
@@ -294,7 +301,7 @@ function apply(s){
     $('lobbyFeed').append(line);while($('lobbyFeed').childElementCount>7)$('lobbyFeed').firstElementChild.remove();
   }
   if(s.stage==='lobby'){
-    $('lobbyMode').textContent=(s.mode==='versus'?'Versus':'Co-op')+' · '+s.difficulty+' · '+objectives[s.objective].name;
+    $('lobbyMode').textContent=(s.mode==='versus'?'Versus':'Co-op')+' · '+s.difficulty+' · '+(s.gameMode==='chaos'?'Chaos':'Classic')+(s.scaleBags?' · Scaled bags':'');
     $('lobbyCode').textContent=room.code;
     $('players').replaceChildren(...s.players.map(p=>{
       const li=document.createElement('li');li.textContent=p.name+' · '+(p.role==='monster'?'Monster':'Survivor')+(p.id===room.host?' · Host':'');return li;
@@ -321,9 +328,13 @@ function apply(s){
     if(e.player&&e.player!==id)continue;
     if(e.type==='hint'&&e.message==='RUN'){$('danger').textContent='RUN';eventUntil=performance.now()+1300;}
     else if(e.message){$('message').textContent=e.message;eventUntil=performance.now()+3500;}
-    audio.event(e,s);
+    if(e.type==='chaos')announceChaos();
+    else audio.event(e,s);
   }
   if(s.stage==='ended'&&prior!=='ended'){
+    $('achievementRound').textContent='';
+    recordAchievementRound(s,me);
+    showMatchResults(s);
     const monster=me?.role==='monster',win=(s.winner==='caught')===monster;
     $('endLabel').textContent=win?'Victory':'Defeat';
     $('endTitle').textContent=s.winner==='escaped'?'Escaped':'Caught';
@@ -475,6 +486,10 @@ function bindMultiTouchButton(id,activate){
   };
 }
 bindMultiTouchButton('touchUse',use);
+let touchUseHeld=false;
+$('touchUse').addEventListener('touchstart',()=>{touchUseHeld=true;},{passive:true});
+for(const event of ['touchend','touchcancel'])$('touchUse').addEventListener(event,()=>{touchUseHeld=false;});
+addEventListener('blur',()=>{touchUseHeld=false;});
 bindMultiTouchButton('touchEye',()=>action.eye=true);
 bindMultiTouchButton('touchRun',()=>{$('touchRun').classList.toggle('active',runTouch=!runTouch);});
 bindMultiTouchButton('chatToggle',()=>{keys.clear();stick={x:0,z:0};if(document.pointerLockElement)document.exitPointerLock();set('chatForm',true);$('chatText').focus();});
@@ -527,8 +542,9 @@ pointerArea($('look'),(e,first)=>{
 },()=>drag=null);
 function packet(){
   if(screen!=='game'){const p={x:0,z:0,yaw,pitch,...action};action={};return p;}
+  if(state?.chaos?.active.includes('window')&&(keys.has('KeyE')||touchUseHeld))use();
   const down=(...k)=>k.some(x=>keys.has(x))?1:0;
-  const p={seenAt:state?.elapsed,x:down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+stick.x,z:down('KeyW','ArrowUp')-down('KeyS','ArrowDown')+stick.z,run:runTouch||!!down('ShiftLeft','ShiftRight'),yaw,pitch,...action};
+  const p={seenAt:state?.elapsed,x:down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+stick.x,z:down('KeyW','ArrowUp')-down('KeyS','ArrowDown')+stick.z,run:runTouch||!!down('ShiftLeft','ShiftRight'),flash:flashOn,yaw,pitch,...action};
   action={};return p;
 }
 let inflight=0,netSeq=0,lastSeq=0;
@@ -551,6 +567,7 @@ async function network(now){
 }
 function moveInput(){
   if(screen!=='game')return {x:0,z:0,run:false};
+  if(state?.chaos?.active.includes('window')&&(keys.has('KeyE')||touchUseHeld))use();
   const down=(...k)=>k.some(x=>keys.has(x))?1:0;
   return {x:down('KeyD','ArrowRight')-down('KeyA','ArrowLeft')+stick.x,z:down('KeyW','ArrowUp')-down('KeyS','ArrowDown')+stick.z,run:runTouch||!!down('ShiftLeft','ShiftRight')};
 }
@@ -685,7 +702,11 @@ function renderWorld(){
   for(const n of world.doors){
     const o=world.objects.get(n.id);o.userData.closed=o.quaternion.clone();doorMeshes.set(n.id,o);
   }
-  for(const p of world.points)world.objects.get(p.id).visible=false;
+  for(const p of world.points){
+    const object=world.objects.get(p.id);
+    object.visible=false;
+    object.position.fromArray(world.nodes.get(p.id).p);
+  }
   const resize=()=>{renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();};
   addEventListener('resize',resize);resize();
 }
@@ -748,6 +769,13 @@ function draw(now,dt){
     if(!viewP||viewP.distanceTo(desired)>3)viewP=desired.clone();
     viewP.lerp(desired,1-Math.exp(-dt*22));camera.position.copy(me.role==='monster'?desired:viewP);camera.rotation.set(lookPitch,-lookYaw,0,'YXZ');
     ghostView=vision||me.role==='monster';
+    const chaos=s.chaos?.active||[];
+    if(chaos.includes('drinks')&&!vision&&me.alive&&me.role==='survivor'){
+      camera.rotateZ(Math.sin(s.elapsed*2.3)*.065);
+      camera.rotateX(Math.sin(s.elapsed*1.4)*.035);
+    }
+    drawChaosHUD(s,me);
+    drawChaosReveal(s,me);
     if(vision)scene.fog=null;
     const alive=new Set();
     for(const p of s.players){
@@ -785,7 +813,15 @@ function draw(now,dt){
     }
     for(const item of s.items){
       const original=world.objects.get(item.id);
-      if(original){original.visible=!item.taken&&!item.hidden;continue;}
+      if(original){original.visible=!item.taken&&!item.hidden;
+        if(item.chaosOrigin){
+          const origin=world.points.find(point=>point.id===item.id).p;
+          const node=world.nodes.get(item.id);
+          const moved=new T.Vector3(item.p[0],item.p[1],-item.p[2]);
+          const previous=new T.Vector3(origin[0],origin[1],-origin[2]);
+          original.position.fromArray(node.p).add(original.parent.worldToLocal(moved).sub(original.parent.worldToLocal(previous)));
+        }
+        continue;}
       if(!itemMeshes.has(item.id))itemMeshes.set(item.id,extraMesh(item));
       const mesh=itemMeshes.get(item.id);if(mesh){mesh.visible=!item.taken;mesh.rotation.y=now*.001;}
     }
@@ -798,7 +834,7 @@ function draw(now,dt){
     }
     const role=me.role==='monster';
     $('danger').textContent=s.ghost.hunting?'RUn!!!':'';
-    $('counter').textContent=scary&&!role?(s.required-s.bags)+' bags left':role?'Monster · '+s.players.filter(p=>p.role==='survivor'&&p.alive).length+' alive':s.bags+' / '+s.required+' bags · '+me.eyes+' eyes';
+    $('counter').textContent=scary&&!role?Math.max(0,s.required-s.bags)+' bags left · '+me.eyes+' eyes':role?'Monster · '+s.players.filter(p=>p.role==='survivor'&&p.alive).length+' alive':s.bags+' / '+s.required+' bags · '+me.eyes+' eyes';
     const tasks=objectives[s.objective].steps.filter(k=>!s.done[k]);
     $('checklist').textContent=role?'E / click to attack':!me.alive?'Spectating':vision?'Seeing through the monster':s.ready?'Return to the front door':tasks.length?'Objective · '+labels[tasks[0]]:'Find money bags';
     set('mapButton',!role);
@@ -832,9 +868,10 @@ function draw(now,dt){
     krasueJumpscare.update(krasueScareTime,dt,camera,ghostVisual,krasueAttack,flash);
   }else{
     krasueJumpscare.reset();
-    flash.update(dt,s?.elapsed||0,!ghostView&&flashOn&&inGame);
+    flash.update(dt,s?.elapsed||0,!ghostView&&flashOn&&inGame&&!chaosFlashOff(s,me));
   }
   if(scary)flash.spot.intensity*=.8;
+  if(me?.role==='survivor'&&s.chaos?.active.includes('buddy')&&!s.players.some(p=>p.id!==me.id&&p.alive&&p.role==='survivor'&&distance(p.p,me.p)<4))flash.spot.intensity*=.45;
   renderer.render(scene,camera);
 }
 function drawMap(){
@@ -928,3 +965,96 @@ document.addEventListener('keydown',startMenuMusic);
 
 
 
+
+
+let chaosHudText='';
+function drawChaosHUD(s,me){
+  const el=$('chaosHUD');
+  el.hidden=!s.chaos||s.stage!=='running';
+  if(el.hidden)return;
+  const titles=s.chaos.active.map(name=>chaosModifiers[name].title+' · '+chaosModifiers[name].description);
+  if(s.chaos.potato===me.id)titles.push('You have the potato. Touch a teammate!');
+  const red=s.chaos.active.includes('red-light')&&s.chaos.age%15>=13.5;
+  el.style.color=red?'#ff6259':'white';
+  const lines=[Math.ceil(s.chaos.remaining)+'s · Chaos'+(red?' · STOP':''),...titles];
+  const text=lines.join('\n');
+  if(text===chaosHudText)return;
+  chaosHudText=text;
+  el.style.whiteSpace='pre-line';
+  el.textContent=text;
+}
+function drawChaosReveal(s,me){
+  const layer=$('chaosReveal');
+  const show=me.role==='monster'&&me.alive&&s.stage==='running'&&s.chaos;
+  const pulse=show&&s.chaos.active.includes('marked')&&s.chaos.age%10<2;
+  layer.replaceChildren();
+  if(me.role==='survivor'&&me.alive&&s.chaos){
+    const {active,age,markedBag,revealBag}=s.chaos;
+    camera.updateMatrixWorld();
+    for(const item of s.items){
+      if(item.type!=='bag'||item.hidden||item.taken)continue;
+      const marked=item.id===markedBag||item.id===revealBag||item.chaosBonus;
+      if(!marked&&!active.includes('window')&&!(active.includes('hide-seek')&&age%15<3&&distance(me.p,item.p)<6))continue;
+      const pos=new T.Vector3(item.p[0],item.p[1],-item.p[2]).project(camera);
+      if(Math.abs(pos.x)>1||Math.abs(pos.y)>1||pos.z< -1||pos.z>1)continue;
+      const tag=document.createElement('span');
+      tag.textContent='◆';
+      tag.style.cssText='position:absolute;color:'+(item.id===markedBag?'#ff4d41':'#ffdb89')+';text-shadow:0 1px 3px black;transform:translate(-50%,-50%)';
+      tag.style.left=(pos.x+1)*50+'%';tag.style.top=(1-pos.y)*50+'%';
+      layer.append(tag);
+    }
+  }
+  if(!show)return;
+  camera.updateMatrixWorld();
+  for(const p of s.players){
+    if(!p.alive||p.role!=='survivor'||!pulse&&!(p.revealedUntil>s.elapsed))continue;
+    const pos=new T.Vector3(p.p[0],p.p[1]+1.6,-p.p[2]).project(camera);
+    if(pos.z< -1||pos.z>1||Math.abs(pos.x)>1||Math.abs(pos.y)>1)continue;
+    const tag=document.createElement('span');
+    tag.textContent='◆ '+p.name;
+    tag.style.cssText='position:absolute;color:#ff4d41;text-shadow:0 1px 3px black;transform:translate(-50%,-50%)';
+    tag.style.left=(pos.x+1)*50+'%';tag.style.top=(1-pos.y)*50+'%';
+    layer.append(tag);
+  }
+
+}
+function chaosFlashOff(s,me){
+  return !!s?.chaos&&(s.chaos.active.includes('lights-out')&&s.chaos.age%10>=8||me?.flashOffUntil>s.elapsed);
+}
+let chaosAudio;
+document.addEventListener('pointerdown',()=>{
+  if(!chaosAudio&&window.AudioContext)chaosAudio=new AudioContext();
+  chaosAudio?.resume().catch(()=>{});
+});
+function announceChaos(){
+  $('shade').animate?.([{opacity:1,background:'#bb854a66'},{opacity:0,background:'transparent'}],{duration:450});
+  if(!chaosAudio||chaosAudio.state!=='running')return;
+  const time=chaosAudio.currentTime;
+  for(const frequency of [440,659.25]){
+    const tone=chaosAudio.createOscillator(),volume=chaosAudio.createGain();
+    tone.frequency.value=frequency;
+    volume.gain.setValueAtTime(.07,time);
+    volume.gain.exponentialRampToValueAtTime(.001,time+.85);
+    tone.connect(volume).connect(chaosAudio.destination);
+    tone.start(time);tone.stop(time+.85);
+  }
+}
+showAchievements();
+
+function showMatchResults(state){
+  const panel=$('matchResults');
+  panel.hidden=!state.results?.length;
+  const bodies=panel.querySelectorAll('tbody');
+  const survivors=state.results?.filter(p=>p.role==='survivor').sort((a,b)=>b.bags-a.bags)||[];
+  const monsters=state.results?.filter(p=>p.role==='monster').sort((a,b)=>b.catches-a.catches)||[];
+  panel.querySelector('[data-monster-results]').hidden=!monsters.length;
+  for(const [index,players] of [survivors,monsters].entries()){
+    bodies[index].replaceChildren(...players.map(player=>{
+      const row=document.createElement('tr');
+      for(const value of [player.name,index===0?player.bags:player.catches,player.status]){
+        const cell=document.createElement('td');cell.textContent=value;row.append(cell);
+      }
+      return row;
+    }));
+  }
+}

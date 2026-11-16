@@ -43,7 +43,7 @@ export function soundscape(data,world,volume){
    if(e.kind==='Lightning'){
     const refs=b.lightnings||[];if(refs[0])playSource(refs[0],{ambient:true});if(refs[1])pending.push({at:state.elapsed+1.22,ref:refs[1]});lightningUntil=state.elapsed+1.5;
    }else if(e.clip)play(e.clip,{p:world.xyz(e.id),slot:'trigger-'+e.id,ambient:true,volume:n.audio?.volume??1,max:n.audio?.max??15});
-  }else if(e.type==='shout3'){clear();if(state.difficulty==='scary')play('pc-krasue-scare',{slot:'scary-scare'});else playSource(world.nodes.get(data.markers.girlMain[0]).behaviours.Girl.shout,{p:null});}
+  }else if(e.type==='shout3'){if(state.chaos?.active.includes('ninja'))return;clear();if(state.difficulty==='scary')play('pc-krasue-scare',{slot:'scary-scare'});else playSource(world.nodes.get(data.markers.girlMain[0]).behaviours.Girl.shout,{p:null});}
   else if(e.type==='escaped'){clear();play('mmmEnd');}
   else if(data.sounds[e.type])play(e.type,{ui:true});
  }
@@ -51,7 +51,7 @@ export function soundscape(data,world,volume){
  function update(state,player,dt,playing,moving){
   listener=player.p;yaw=player.yaw;
   const scary=state.difficulty==='scary';
-  const same=floorOf(player.p)===floorOf(state.ghost.p);
+  const same=!state.chaos?.active.includes('ninja')&&floorOf(player.p)===floorOf(state.ghost.p);
   silenceAmbience=scary;
   if(scary)for(const shaker of shakers){
    world.objects.get(shaker.n.id).quaternion.copy(shaker.base);
@@ -83,5 +83,6 @@ export function soundscape(data,world,volume){
  }
  return {play,start,event,update,clear,clip,shakers,flash:time=>time<lightningUntil&&Math.sin(time*50)>.1};
 }
+
 
 

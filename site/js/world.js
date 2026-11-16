@@ -1,3 +1,4 @@
+const chaosDoorPass=Symbol.for('eyes.chaosDoorPass');
 const krasueAllowedDoors=new Set([1262,1267,1578,1608,1806]);
 import {Object3D,Bone,Vector3,Matrix4,BoxGeometry} from './three.js';
 
@@ -195,10 +196,31 @@ export function buildWorld(data, bytes) {
     return contact;
   }
 
+  const basementDoorFrame=objects.get(1448);
+  const basementDoorInverse=basementDoorFrame?.matrixWorld.clone().invert();
+  const basementDoorProbe=new Vector3();
+
+  const basementChaseStart=new Vector3(),basementChaseEnd=new Vector3();
+  function basementBlocksChase(a,b,open){
+    if(!basementDoorInverse||open[chaosDoorPass]?.includes(1546))return false;
+    const from=basementChaseStart.fromArray(a).applyMatrix4(basementDoorInverse);
+    const to=basementChaseEnd.fromArray(b).applyMatrix4(basementDoorInverse);
+    const span=to.x-from.x;
+    if(Math.abs(span)<.00001)return false;
+    const t=(-.065-from.x)/span;
+    if(t<0||t>1)return false;
+    const height=from.y+(to.y-from.y)*t;
+    return height>=-.5&&height<2&&Math.abs(from.z+(to.z-from.z)*t)<1.18;
+  }
+
   function blocked(x,y,z,open,r=.21,ignoreDoors=false,ghost=false,onlyDoor=0){
+    if(ghost&&!onlyDoor&&basementDoorInverse&&!open[chaosDoorPass]?.includes(1546)){
+      const local=basementDoorProbe.set(x,y,z).applyMatrix4(basementDoorInverse);
+      if(local.y>=-.5&&local.y<2&&Math.abs(local.x+.065)<r+.08&&Math.abs(local.z)<.98+r)return true;
+    }
     for(const t of ghost?around(x,z,r):nearby(x,z,r,open)){
       if(onlyDoor&&t[10]!==onlyDoor)continue;
-      if(ghost&&t[10]&&krasueAllowedDoors.has(t[10]))continue;
+      if(ghost&&t[10]&&(krasueAllowedDoors.has(t[10])||open[chaosDoorPass]?.includes(t[10])))continue;
       if(ghost&&!t[12]&&!t[10])continue;
       if(Math.abs(t[9])>.73 || t[10]&&(ignoreDoors||!ghost&&open[t[10]]&&!hinges.has(t[10])))continue;
       for(const h of [.48,1.12]){
@@ -264,7 +286,7 @@ export function buildWorld(data, bytes) {
   const contains=(t,p)=>{const q=new Vector3(p[0],p[1]+.8,p[2]).applyMatrix4(t.inverse);return ['x','y','z'].every((a,i)=>Math.abs(q[a]-t.center[i])<=t.size[i]/2+.15);};
   const spawn=xyz(data.markers.player[0]);spawn[1]=floors(spawn[0],spawn[2]).find(h=>h<spawn[1]-.3)??0;
   const power=xyz(data.markers.powerbox_large_02[0]);power[1]+=.8;
-  return {data,triggerVolumes,contains,nodes,objects,root,enabled,xyz,points,doors,exit:{id:exit.id,p:xyz(exit.id)},power,spawn,floors,blocked,move,clear,sight,triangles,doorContact,doorHitsWall,doorSwingLimits};
+  return {data,triggerVolumes,contains,nodes,objects,root,enabled,xyz,points,doors,exit:{id:exit.id,p:xyz(exit.id)},power,spawn,floors,blocked,move,clear,sight,basementBlocksChase,triangles,doorContact,doorHitsWall,doorSwingLimits};
 }
 
 const navCache=new WeakMap();
