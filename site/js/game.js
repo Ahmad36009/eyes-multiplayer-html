@@ -112,7 +112,10 @@ export function createGame(world,nav,options={}){
     });if(prey)catchPlayer(prey);}
    return;
   }
-  if(packet.eye&&p.eyes&&p.vision<=elapsed){p.eyes--;p.vision=elapsed+3;active=true;emit('eye');}
+  if(packet.eye){
+   if(p.vision>elapsed)p.vision=elapsed;
+   else if(p.eyes){p.eyes--;p.vision=elapsed+3;active=true;emit('eye');}
+  }
   if(packet.interact!=null&&p.vision<=elapsed)interact(p,packet.interact,packet.hitPoint);
  }
  function tick(dt){
