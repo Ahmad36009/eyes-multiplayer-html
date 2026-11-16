@@ -340,7 +340,7 @@ function apply(s){
     $('endTitle').textContent=s.winner==='escaped'?'Escaped':'Caught';
     $('endText').textContent=s.winner==='escaped'?"hi. congratz, man. nicely done.\nwhy don’t you answer my calls?":'You were caught inside the house.';
     const lingering=s.difficulty==='scary'&&s.winner==='caught'&&!monster;
-    if(!lingering)audio.clear();
+    if(!lingering)audio.clear({keepScare:s.winner==='caught'});
     if(s.winner==='escaped')audio.event({type:'escaped'},s);
     const caught=s.winner==='caught';$('endDifficulty').value=s.difficulty;$('replay').hidden=!!room;
     $('end').classList.toggle('caught',caught);
