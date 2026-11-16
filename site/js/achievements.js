@@ -15,7 +15,7 @@ export function recordAchievementRound(s,me){
  const escape=s.winner==='escaped'&&me.role==='survivor'&&me.alive;
  const awards={
   escape,scary:escape&&s.difficulty==='scary',
-  chaos:escape&&s.gameMode==='chaos'&&s.elapsed>=60,
+  chaos:escape&&s.gameMode==='chaos'&&!!s.chaos?.active.length,
   scaled:escape&&s.mode!=='solo'&&s.scaleBags,
   versus:s.mode==='versus'&&me.role==='monster'&&s.winner==='caught',
  };

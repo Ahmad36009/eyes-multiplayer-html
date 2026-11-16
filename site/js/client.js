@@ -771,8 +771,8 @@ function draw(now,dt){
     ghostView=vision||me.role==='monster';
     const chaos=s.chaos?.active||[];
     if(chaos.includes('drinks')&&!vision&&me.alive&&me.role==='survivor'){
-      camera.rotateZ(Math.sin(s.elapsed*2.3)*.065);
-      camera.rotateX(Math.sin(s.elapsed*1.4)*.035);
+      camera.rotateZ(Math.sin(s.elapsed*2.8)*.16);
+      camera.rotateX(Math.sin(s.elapsed*1.9)*.10);
     }
     drawChaosHUD(s,me);
     drawChaosReveal(s,me);
@@ -974,7 +974,7 @@ function drawChaosHUD(s,me){
   if(el.hidden)return;
   const titles=s.chaos.active.map(name=>chaosModifiers[name].title+' · '+chaosModifiers[name].description);
   if(s.chaos.potato===me.id)titles.push('You have the potato. Touch a teammate!');
-  const red=s.chaos.active.includes('red-light')&&s.chaos.age%15>=13.5;
+  const red=s.chaos.active.includes('red-light')&&s.chaos.age%6>=4;
   el.style.color=red?'#ff6259':'white';
   const lines=[Math.ceil(s.chaos.remaining)+'s · Chaos'+(red?' · STOP':''),...titles];
   const text=lines.join('\n');
@@ -1019,7 +1019,7 @@ function drawChaosReveal(s,me){
 
 }
 function chaosFlashOff(s,me){
-  return !!s?.chaos&&(s.chaos.active.includes('lights-out')&&s.chaos.age%10>=8||me?.flashOffUntil>s.elapsed);
+  return !!s?.chaos&&(s.chaos.active.includes('lights-out')&&s.chaos.age%6>=2||me?.flashOffUntil>s.elapsed);
 }
 let chaosAudio;
 document.addEventListener('pointerdown',()=>{

@@ -208,11 +208,11 @@ export function createGame(world,nav,options={}){
   }
   for(const p of survivors){
   if(p.vision<=elapsed){
-   let {x=0,z=0,run}=p.input;const norm=Math.max(1,Math.hypot(x,z));x/=norm;z/=norm;
+   let {x=0,z=0,run}=p.input;if(chaos.has('no-sprint'))run=false;const norm=Math.max(1,Math.hypot(x,z));x/=norm;z/=norm;
    let speed=run?(p.energy>60?6:p.energy>40?5:p.energy>20?4:3):3;
    if(chaos.has('loose-change')){
     p.sprintTime=run&&(x||z)?(p.sprintTime||0)+dt:0;
-    if(p.sprintTime>=3){
+    if(p.sprintTime>=2){
      p.sprintTime=0;
      const drop=p.collectedBags?.pop(),item=drop&&items.find(item=>item.id===drop.id);
      if(item){
@@ -222,7 +222,8 @@ export function createGame(world,nav,options={}){
      }
     }
    }
-   if(chaos.has('heavy-pockets'))speed*=1-.08*(p.chaosBags||0);
+   if(chaos.has('overdrive'))speed*=1.4;
+   if(chaos.has('heavy-pockets'))speed*=1-.18*(p.chaosBags||0);
    if(run){p.runTimer+=dt;if(p.runTimer>1){p.energy=Math.max(0,p.energy-10);p.runTimer-=1;}}
    else{p.walkTimer+=dt;if(p.walkTimer>1){p.energy=Math.min(100,p.energy+5);p.walkTimer-=1;}}
    if(x||z){
