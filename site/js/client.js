@@ -1,3 +1,5 @@
+import {createKrasueJumpscare} from './krasue-jumpscare.js';
+const krasueJumpscare=createKrasueJumpscare();
 import {unityMaterial,originalAmbient,flashlight} from './lighting.js';
 import {soundscape} from './soundscape.js';
 import {originalUI} from './ui.js';
@@ -719,6 +721,7 @@ function modelPlayerFallback(){
 const pos=new T.Vector3(),lookDir=new T.Vector3(),twist=new T.Quaternion(),axis=new T.Vector3(0,1,0);
 const scaryFog=new T.FogExp2(0x050505,.11);
 function draw(now,dt){
+  let showKrasueScare=false,krasueScareTime=0;
   krasueAttack?.reset();
   const s=state, me=s?.players.find(p=>p.id===id);
   const inGame=!!me&&s.stage!=='lobby';
@@ -811,13 +814,11 @@ function draw(now,dt){
     ui.update(s,me,target);
     const scareTime=s.stage==='ending'&&s.winner==='caught'
       ? krasueScareSeconds-s.ending : s.elapsed-(me.caughtAt??-99);
-    if(!role&&dead&&scareTime>=0&&scareTime<krasueScareSeconds){
-      ghostVisual.visible=true;
-      ghostVisual.rotation.y=Math.atan2(me.p[0]-s.ghost.p[0],me.p[2]-s.ghost.p[2]);
-      krasueAttack.update(scareTime);
-      camera.lookAt(s.ghost.p[0],s.ghost.p[1]+1.45,-s.ghost.p[2]);
-      camera.fov=60-28*Math.min(1,scareTime/.5);camera.updateProjectionMatrix();
+    if(me.role==='survivor'&&dead&&scareTime>=0&&scareTime<krasueScareSeconds){
+      showKrasueScare=true;
+      krasueScareTime=scareTime;
       $('shade').style.background='';
+
     }else{camera.fov=60;camera.updateProjectionMatrix();$('shade').style.background='';}
 
   }else{
@@ -827,7 +828,12 @@ function draw(now,dt){
   }
   originalAmbient.value=scary?(ghostView?3:.095):ghostView?3:audio?.flash(s?.elapsed||0)?1.5:+$('brightness').value;
   if(me&&!me.alive&&s.stage==='running'&&s.elapsed-me.caughtAt>=krasueScareSeconds){const t=s.elapsed-me.caughtAt;$('shade').style.background=t>=krasueScareSeconds&&t<2.45?'rgba(0,0,0,'+Math.min(1,(t-krasueScareSeconds)/.35)+')':'';}
-  flash.update(dt,s?.elapsed||0,!ghostView&&flashOn&&inGame);
+  if(showKrasueScare){
+    krasueJumpscare.update(krasueScareTime,dt,camera,ghostVisual,krasueAttack,flash);
+  }else{
+    krasueJumpscare.reset();
+    flash.update(dt,s?.elapsed||0,!ghostView&&flashOn&&inGame);
+  }
   if(scary)flash.spot.intensity*=.8;
   renderer.render(scene,camera);
 }
