@@ -1,10 +1,11 @@
 import {unityMaterial,originalAmbient,flashlight} from './lighting.js';
 import {soundscape} from './soundscape.js';
 import {originalUI} from './ui.js';
+import {bindKrasueAttack} from './krasue-attack.js';
 import {legacyAnimator} from './animation.js';
 import * as T from './three.js';
 import {buildWorld,navigation} from './world.js';
-import {createGame,objectives,labels,distance,difficulties} from './game.js';
+import {createGame,objectives,labels,distance,difficulties,krasueScareSeconds} from './game.js';
 import {GLTFLoader} from './gltfloader.js';
 import {buildRig,spawnPlayer,animatePlayer} from './playerrig.js';
 
@@ -18,6 +19,7 @@ let netFails=0,gameAmbient,action={},stick={x:0,z:0},runTouch=false,target=null;
 const keys=new Set(), actors=new Map(), itemMeshes=new Map(), doorMeshes=new Map(), textures=new Map(), geometryCache=new Map();
 const asset=name=>globalThis.eyesAsset(name);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let krasueAttack;
 let animator,breathing,monsterBreath,monsterHum,audio,ui;
 let frame=performance.now(),accumulator=0;
 
@@ -271,6 +273,7 @@ function leave(){
   audio?.clear();show('menu');$('menuStatus').textContent='';$('play').disabled=false;
 }
 function resetRound(s){
+  krasueAttack?.reset();
   animator=legacyAnimator(data,world);for(const n of data.nodes){const o=world.objects.get(n.id);o.position.fromArray(n.p);if(o.userData.flashOffset)o.position.add(o.userData.flashOffset);o.quaternion.fromArray(n.q).normalize();o.scale.fromArray(n.s);}animator.update(0,{},0,{});accumulator=0;
   const p=s.players.find(p=>p.id===id);yaw=p?.yaw||0;pitch=0;viewP=null;lastEvent=-1;eventUntil=0;lastFoot=0;action={};
   for(const o of doorMeshes.values())o.quaternion.copy(o.userData.closed);
@@ -675,6 +678,7 @@ function renderWorld(){
     const skeleton=new T.Skeleton(bones,inverse);mesh.bind(skeleton,mesh.matrixWorld);mesh.frustumCulled=false;
   }
   animator=legacyAnimator(data,world);
+  krasueAttack=bindKrasueAttack(world);
   player.visible=false;
   for(const n of world.doors){
     const o=world.objects.get(n.id);o.userData.closed=o.quaternion.clone();doorMeshes.set(n.id,o);
@@ -715,6 +719,7 @@ function modelPlayerFallback(){
 const pos=new T.Vector3(),lookDir=new T.Vector3(),twist=new T.Quaternion(),axis=new T.Vector3(0,1,0);
 const scaryFog=new T.FogExp2(0x050505,.11);
 function draw(now,dt){
+  krasueAttack?.reset();
   const s=state, me=s?.players.find(p=>p.id===id);
   const inGame=!!me&&s.stage!=='lobby';
   const scary=inGame&&s.difficulty==='scary';
@@ -725,7 +730,7 @@ function draw(now,dt){
     const vision=me.vision>s.elapsed,dead=!me.alive;
     document.body.classList.toggle('vision',vision);document.body.classList.toggle('dead',dead);
     const living=s.players.filter(p=>p.role==='survivor'&&p.alive);
-    spectate=dead&&s.elapsed-(me.caughtAt??-99)>=2.45?(living.find(p=>p.id===spectateId)||living[0]):null;
+    spectate=dead&&s.elapsed-(me.caughtAt??-99)>=krasueScareSeconds+.7?(living.find(p=>p.id===spectateId)||living[0]):null;
     if(spectate)spectateId=spectate.id;
     set('spectating',!!spectate);
     set('chatToggle',!!room);
@@ -804,11 +809,15 @@ function draw(now,dt){
     $('prompt').textContent=target?(coarse?'':'E · ')+labels[target.type]:'';
     audio.update(s,me,dt,screen==='game', {active:!!step,run:keys.has('ShiftLeft')||keys.has('ShiftRight')||runTouch});
     ui.update(s,me,target);
-    if((s.stage==='ending' &&s.winner==='caught')||(dead&&s.elapsed-(me.caughtAt??-99)<1.75)){
+    const scareTime=s.stage==='ending'&&s.winner==='caught'
+      ? krasueScareSeconds-s.ending : s.elapsed-(me.caughtAt??-99);
+    if(!role&&dead&&scareTime>=0&&scareTime<krasueScareSeconds){
+      ghostVisual.visible=true;
+      ghostVisual.rotation.y=Math.atan2(me.p[0]-s.ghost.p[0],me.p[2]-s.ghost.p[2]);
+      krasueAttack.update(scareTime);
       camera.lookAt(s.ghost.p[0],s.ghost.p[1]+1.45,-s.ghost.p[2]);
-      const scareTime=s.stage==='ending'?1.75-s.ending:s.elapsed-me.caughtAt;
-      camera.fov=60-50*Math.min(1,scareTime/.5);camera.updateProjectionMatrix();
-      $('shade').style.background='rgba(0,0,0,'+Math.min(1,scareTime/2)+')';
+      camera.fov=60-28*Math.min(1,scareTime/.5);camera.updateProjectionMatrix();
+      $('shade').style.background='';
     }else{camera.fov=60;camera.updateProjectionMatrix();$('shade').style.background='';}
 
   }else{
@@ -817,7 +826,7 @@ function draw(now,dt){
     if(ghostVisual)ghostVisual.visible=false;
   }
   originalAmbient.value=scary?(ghostView?3:.095):ghostView?3:audio?.flash(s?.elapsed||0)?1.5:+$('brightness').value;
-  if(me&&!me.alive&&s.stage==='running'&&s.elapsed-me.caughtAt>=1.75){const t=s.elapsed-me.caughtAt;$('shade').style.background=t>=1.75&&t<2.45?'rgba(0,0,0,'+Math.min(1,(t-1.75)/.35)+')':'';}
+  if(me&&!me.alive&&s.stage==='running'&&s.elapsed-me.caughtAt>=krasueScareSeconds){const t=s.elapsed-me.caughtAt;$('shade').style.background=t>=krasueScareSeconds&&t<2.45?'rgba(0,0,0,'+Math.min(1,(t-krasueScareSeconds)/.35)+')':'';}
   flash.update(dt,s?.elapsed||0,!ghostView&&flashOn&&inGame);
   if(scary)flash.spot.intensity*=.8;
   renderer.render(scene,camera);
@@ -910,5 +919,6 @@ function startMenuMusic(){
 document.addEventListener('pointerdown',startMenuMusic);
 document.getElementById('focusGate')?.addEventListener('click',startMenuMusic);
 document.addEventListener('keydown',startMenuMusic);
+
 
 
