@@ -111,7 +111,8 @@ export function createGame(world,nav,options={}){
   if(stage==='running'&&p?.role==='monster')end('escaped');
   else if(stage==='running'&&players.size&&![...players.values()].some(p=>p.alive&&p.role==='survivor'))end('caught');
  }
- function catchPlayer(p,cause='Krasue'){
+ function catchPlayer(p,cause='Krasue',attackerPosition=ghost.p){
+  if(cause==='Krasue')p.krasueCatchPosition=[attackerPosition[0],attackerPosition[1]+.2*Math.sin(elapsed*4)+.3,attackerPosition[2]];
   p.alive=false;p.caughtAt=elapsed;p.eliminationCause=cause;emit('feed',cause==='Krasue'?'Krasue caught '+p.name+'.':p.name+' was eliminated by '+cause+'.');
   if(![...players.values()].some(p=>p.alive&&p.role==='survivor'))end('caught');
   else emit('shout3','',{player:p.id});
@@ -133,7 +134,7 @@ export function createGame(world,nav,options={}){
       if(q.role!=='survivor'||!q.alive||!world.sight(p.p,q.p,open))return false;
       const previous=past?.positions.get(q.id)||q.p;
       return distance(q.p,p.p)<1.85||distance(previous,p.p)<1.85&&distance(q.p,p.p)<2.65&&world.sight(p.p,previous,open);
-    });if(prey){p.catches=(p.catches||0)+1;catchPlayer(prey);}}
+    });if(prey){p.catches=(p.catches||0)+1;catchPlayer(prey,'Krasue',p.p);}}
    return;
   }
   if(packet.eye&&p.vision>elapsed)p.vision=elapsed;

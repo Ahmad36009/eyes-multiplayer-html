@@ -865,7 +865,7 @@ function draw(now,dt){
   originalAmbient.value=scary?(ghostView?3:.095):ghostView?3:audio?.flash(s?.elapsed||0)?1.5:+$('brightness').value;
   if(me&&!me.alive&&s.stage==='running'&&s.elapsed-me.caughtAt>=krasueScareSeconds){const t=s.elapsed-me.caughtAt;$('shade').style.background=t>=krasueScareSeconds&&t<2.45?'rgba(0,0,0,'+Math.min(1,(t-krasueScareSeconds)/.35)+')':'';}
   if(showKrasueScare){
-    krasueJumpscare.update(krasueScareTime,dt,camera,ghostVisual,krasueAttack,flash);
+    krasueJumpscare.update(krasueScareTime,dt,camera,ghostVisual,krasueAttack,flash,me.krasueCatchPosition);
   }else{
     krasueJumpscare.reset();
     flash.update(dt,s?.elapsed||0,!ghostView&&flashOn&&inGame&&!chaosFlashOff(s,me));

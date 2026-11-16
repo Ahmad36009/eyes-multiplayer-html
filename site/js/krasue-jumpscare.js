@@ -9,6 +9,7 @@ const keyframes = [
 
 export function createKrasueJumpscare() {
   const forward = new Vector3(), right = new Vector3(), position = new Vector3();
+  const startPosition = new Vector3();
   const face = new Vector3(), separation = new Vector3();
   const faceOffset = new Vector3(-.1211, -.0003, .1051);
   const aim = new PerspectiveCamera();
@@ -16,10 +17,16 @@ export function createKrasueJumpscare() {
   let lastTime = null;
   return {
     reset() { lastTime = null; },
-    update(time, dt, camera, ghost, attack, flash) {
-      if (lastTime === null || time < lastTime) {
-        camera.getWorldDirection(forward);
-        forward.y = 0;
+    update(time, dt, camera, ghost, attack, flash, catchPosition) {
+      const firstFrame = lastTime === null || time < lastTime;
+      if (firstFrame) {
+        const source = catchPosition ?? ghost.position.toArray();
+        startPosition.set(source[0], source[1], -source[2]);
+        forward.set(startPosition.x-camera.position.x,0,startPosition.z-camera.position.z);
+        if (forward.lengthSq()<1e-6) {
+          camera.getWorldDirection(forward);
+          forward.y=0;
+        }
         forward.normalize();
         right.set(-forward.z, 0, forward.x);
         view.copy(camera.quaternion);
@@ -34,6 +41,8 @@ export function createKrasueJumpscare() {
       const value = index => a[index] + (b[index] - a[index]) * blend;
       position.copy(camera.position).addScaledVector(right, value(1)).addScaledVector(forward, value(3));
       position.y += value(2);
+      const entry = firstFrame ? 0 : Math.min(1, time / .267);
+      position.lerp(startPosition, 1 - entry*entry*(3-2*entry));
 
       ghost.visible = true;
       ghost.position.set(position.x, position.y, -position.z);
